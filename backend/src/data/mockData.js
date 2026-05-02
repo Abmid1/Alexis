@@ -1,0 +1,196 @@
+const { v4: uuidv4 } = require('uuid');
+
+const leads = [
+  { id: uuidv4(), name: 'Nana Ama', source: 'WhatsApp', interest: '3 bed · East Legon', budget: '400–500k', status: 'Hot', aiScore: 92, added: '2 min ago', addedAt: new Date(Date.now() - 2 * 60 * 1000) },
+  { id: uuidv4(), name: 'Kofi Mensah', source: 'Instagram', interest: 'Apt · Airport Res', budget: '280–320k', status: 'Warm', aiScore: 71, added: '10 min ago', addedAt: new Date(Date.now() - 10 * 60 * 1000) },
+  { id: uuidv4(), name: 'Akua Addo', source: 'Website', interest: '4 bed · Cantonments', budget: '700k+', status: 'Hot', aiScore: 88, added: '1 hr ago', addedAt: new Date(Date.now() - 60 * 60 * 1000) },
+  { id: uuidv4(), name: 'Kwame Boateng', source: 'Facebook', interest: '2 bed · Tema', budget: '150–200k', status: 'New', aiScore: null, added: '2 hr ago', addedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+  { id: uuidv4(), name: 'Afia Serwaa', source: 'WhatsApp', interest: 'Land · Adenta', budget: '80–120k', status: 'Cold', aiScore: 34, added: '3 hr ago', addedAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+  { id: uuidv4(), name: 'Emefa Ofori', source: 'Instagram', interest: '1 bed · Osu', budget: '180–220k', status: 'Warm', aiScore: 65, added: '4 hr ago', addedAt: new Date(Date.now() - 4 * 60 * 60 * 1000) },
+  { id: uuidv4(), name: 'Ama Owusu', source: 'WhatsApp', interest: '3 bed · Labone', budget: '400–450k', status: 'New', aiScore: 45, added: '5 hr ago', addedAt: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+  { id: uuidv4(), name: 'Yaw Darko', source: 'Instagram', interest: 'Land · Adenta', budget: '90–110k', status: 'Cold', aiScore: 22, added: '6 hr ago', addedAt: new Date(Date.now() - 6 * 60 * 60 * 1000) },
+];
+
+const properties = [
+  { id: uuidv4(), name: '3 Bed House · East Legon', location: 'Accra · Added May 10', price: 'GHS 480,000', type: 'sale', status: 'Verified', emoji: '🏠', color: 'green', addedAt: '2024-05-10' },
+  { id: uuidv4(), name: '2 Bed Apt · Airport Res', location: 'Accra · Added May 8', price: 'GHS 4,200 / mo', type: 'rent', status: 'Verified', emoji: '🏢', color: 'blue', addedAt: '2024-05-08' },
+  { id: uuidv4(), name: 'Land · Adenta', location: 'Accra · Added May 5', price: 'GHS 95,000', type: 'land', status: 'Pending', emoji: '🌳', color: 'amber', addedAt: '2024-05-05' },
+  { id: uuidv4(), name: '4 Bed · Cantonments', location: 'Accra · Added May 3', price: 'GHS 780,000', type: 'sale', status: 'Verified', emoji: '🏘', color: 'purple', addedAt: '2024-05-03' },
+  { id: uuidv4(), name: 'Office Space · Osu', location: 'Accra · Added Apr 28', price: 'GHS 8,500 / mo', type: 'rent', status: 'Verified', emoji: '🏗', color: 'coral', addedAt: '2024-04-28' },
+  { id: uuidv4(), name: '2 Bed · Tema', location: 'Greater Accra · Apr 22', price: 'GHS 195,000', type: 'sale', status: 'Pending', emoji: '🏠', color: 'teal', addedAt: '2024-04-22' },
+];
+
+const conversations = [
+  {
+    id: uuidv4(),
+    name: 'Nana Ama',
+    initials: 'NA',
+    avatarColor: 'g',
+    lastMessage: "I'm looking to buy in East Legon...",
+    time: '2m',
+    source: 'WhatsApp',
+    status: 'AI live',
+    unread: true,
+    leadStatus: 'Hot',
+    aiActive: true,
+    context: '3 bed buyer · East Legon',
+    messages: [
+      { id: uuidv4(), type: 'in', text: "Hi, I'm interested in one of your properties 🙏", time: '10:30 AM' },
+      { id: uuidv4(), type: 'ai', text: "Hi! 👋 Thanks for reaching out to Dream Homes Realty. Are you looking to buy or rent?", time: '10:30 AM · 4 sec', label: '🤖 AI Reply' },
+      { id: uuidv4(), type: 'in', text: 'Buy please', time: '10:31 AM' },
+      { id: uuidv4(), type: 'ai', text: 'Great! What\'s your preferred location? East Legon, Airport Res, Cantonments, or Tema?', time: '10:31 AM · 3 sec', label: '🤖 AI Reply' },
+      { id: uuidv4(), type: 'in', text: 'East Legon preferably. 3 bedrooms.', time: '10:33 AM' },
+      { id: uuidv4(), type: 'ai', text: 'We have 3 listings in East Legon right now from GHS 420k–560k. What\'s your budget range? I\'ll match you to the best options 🏠', time: '10:33 AM · 5 sec', label: '🤖 AI Reply' },
+      { id: uuidv4(), type: 'in', text: 'Around 450–500k is fine', time: '10:35 AM' },
+      { id: uuidv4(), type: 'ai', text: "Perfect match! I'm connecting you with Kwame now — he'll share full details and arrange a viewing 📅", time: '10:35 AM · 3 sec', label: '🤖 AI Reply — escalating to agent' },
+    ],
+  },
+  {
+    id: uuidv4(),
+    name: 'Kofi Mensah',
+    initials: 'KM',
+    avatarColor: 'b',
+    lastMessage: "What's the price for a 2 bed?",
+    time: '10m',
+    source: 'Instagram',
+    status: 'AI live',
+    unread: true,
+    leadStatus: 'Warm',
+    aiActive: true,
+    context: 'Apt buyer · Airport Res',
+    messages: [
+      { id: uuidv4(), type: 'in', text: "What's the price for a 2 bed apartment?", time: '11:00 AM' },
+      { id: uuidv4(), type: 'ai', text: 'Hi Kofi! Our 2-bedroom apartments range from GHS 280k–320k depending on location. Which area are you considering?', time: '11:00 AM · 3 sec', label: '🤖 AI Reply' },
+    ],
+  },
+  {
+    id: uuidv4(),
+    name: 'Akua Addo',
+    initials: 'AA',
+    avatarColor: 'a',
+    lastMessage: 'Can I schedule a viewing?',
+    time: '1hr',
+    source: 'WhatsApp',
+    status: 'Needs you',
+    unread: false,
+    leadStatus: 'Hot',
+    aiActive: false,
+    context: '4 bed buyer · Cantonments',
+    messages: [
+      { id: uuidv4(), type: 'in', text: 'I saw the 4 bed in Cantonments. Can I schedule a viewing this weekend?', time: '9:15 AM' },
+      { id: uuidv4(), type: 'ai', text: "Absolutely! I'll flag this to our agent Kwame who will confirm a time with you shortly.", time: '9:15 AM · 2 sec', label: '🤖 AI Reply' },
+    ],
+  },
+  {
+    id: uuidv4(),
+    name: 'Kwame Boateng',
+    initials: 'KB',
+    avatarColor: 'p',
+    lastMessage: 'Anything in Tema under 200k?',
+    time: '2hr',
+    source: 'Facebook',
+    status: 'AI live',
+    unread: false,
+    leadStatus: 'New',
+    aiActive: true,
+    context: '2 bed buyer · Tema',
+    messages: [
+      { id: uuidv4(), type: 'in', text: 'Anything in Tema under 200k?', time: '8:30 AM' },
+      { id: uuidv4(), type: 'ai', text: 'Yes! We have a 2-bedroom in Tema at GHS 195,000. Great value for the location. Interested in details?', time: '8:30 AM · 4 sec', label: '🤖 AI Reply' },
+    ],
+  },
+  {
+    id: uuidv4(),
+    name: 'Afia Serwaa',
+    initials: 'AS',
+    avatarColor: 'r',
+    lastMessage: 'Just browsing for now, thanks',
+    time: '3hr',
+    source: 'WhatsApp',
+    status: 'Closed cold',
+    unread: false,
+    leadStatus: 'Cold',
+    aiActive: false,
+    context: 'Land buyer · Adenta',
+    messages: [
+      { id: uuidv4(), type: 'in', text: "Just browsing for now, thanks", time: '7:45 AM' },
+      { id: uuidv4(), type: 'ai', text: "No problem! I'll send you our latest listings. Feel free to reach out when you're ready 😊", time: '7:45 AM · 3 sec', label: '🤖 AI Reply' },
+    ],
+  },
+];
+
+const pipelineDeals = [
+  { id: uuidv4(), property: '3 bed · Labone', client: 'Ama Owusu · WhatsApp', amount: 'GHS 420k', stage: 'New', progress: 25 },
+  { id: uuidv4(), property: 'Land · Adenta', client: 'Yaw Darko · Instagram', amount: 'GHS 95k', stage: 'New', progress: 15 },
+  { id: uuidv4(), property: '2 bed · Spintex', client: 'Abena Asare · Web', amount: 'GHS 210k', stage: 'New', progress: 10 },
+  { id: uuidv4(), property: 'Apt · Airport Res', client: 'Nana Ama · WhatsApp', amount: 'GHS 310k', stage: 'Qualified', progress: 55 },
+  { id: uuidv4(), property: '4 bed · East Legon', client: 'Kojo Asante · Web', amount: 'GHS 750k', stage: 'Qualified', progress: 60 },
+  { id: uuidv4(), property: '1 bed · Osu', client: 'Emefa Ofori · IG', amount: 'GHS 195k', stage: 'Qualified', progress: 45 },
+  { id: uuidv4(), property: '2 bed · Tema', client: 'Efua Mensah · WA', amount: 'GHS 195k', stage: 'Negotiating', progress: 80 },
+  { id: uuidv4(), property: 'Office · Osu', client: 'GBL Ventures · Web', amount: 'GHS 1.2m', stage: 'Negotiating', progress: 75 },
+  { id: uuidv4(), property: '3 bed · Cantonments', client: 'Akua Addo · Web', amount: 'GHS 560k', stage: 'Closed', progress: 100 },
+  { id: uuidv4(), property: 'Land · Spintex', client: 'T. Amoah · WA', amount: 'GHS 290k', stage: 'Closed', progress: 100 },
+];
+
+const followUps = [
+  { id: uuidv4(), title: 'Follow up with Akua Addo', subtitle: 'Send viewing confirmation · WhatsApp', time: '10:00 AM', status: 'Done', completed: true, section: 'today' },
+  { id: uuidv4(), title: 'Call Kofi Mensah', subtitle: 'Discuss Airport Res apartment options', time: '1:00 PM', status: 'Scheduled', completed: false, section: 'today' },
+  { id: uuidv4(), title: 'Send property details · Nana Ama', subtitle: 'East Legon 3 bed listings PDF', time: 'Tomorrow 9AM', status: 'AI will send', completed: false, section: 'today' },
+  { id: uuidv4(), title: 'Re-engage Yaw Darko', subtitle: 'Cold lead · 5 days no response', time: 'Overdue', status: 'Overdue', completed: false, section: 'today' },
+  { id: uuidv4(), title: 'Viewing reminder · GBL Ventures', subtitle: 'Osu office space · Tomorrow 10AM', time: 'Tonight 6PM', status: 'AI will send', completed: false, section: 'today' },
+];
+
+const campaigns = [
+  { id: uuidv4(), label: 'D1', color: 'g', title: 'New lead · Day 1', subtitle: 'Sends immediately on new lead · 89 leads enrolled', status: 'Active' },
+  { id: uuidv4(), label: 'D2', color: 'b', title: 'New lead · Day 2', subtitle: 'Sends 24hr after first message · 64 leads enrolled', status: 'Active' },
+  { id: uuidv4(), label: 'D5', color: 'a', title: 'Re-engagement · Day 5', subtitle: 'For cold/no-reply leads · 31 leads enrolled', status: 'Active' },
+];
+
+const aiResponseTemplates = [
+  {
+    id: uuidv4(),
+    triggerLabel: 'New',
+    triggerColor: 'new',
+    trigger: 'New lead sends first message on any channel',
+    question: 'Lead: "Hi, I\'m interested in one of your properties"',
+    answer: "Hi! 👋 Thanks for reaching out to Dream Homes Realty. I'm here to help you find the perfect property. Are you looking to <strong>buy</strong> or <strong>rent</strong>?",
+    usedCount: 1240,
+    continueRate: 94,
+    autoTag: 'Auto',
+  },
+  {
+    id: uuidv4(),
+    triggerLabel: 'Warm',
+    triggerColor: 'warm',
+    trigger: 'Lead says "buy" → asks location preference',
+    question: 'Lead: "I want to buy"',
+    answer: "Great choice! 🏠 Which area are you looking at? We have properties in East Legon, Airport Residential, Cantonments, Labone, Tema, and Adenta.",
+    usedCount: 810,
+    continueRate: 88,
+    autoTag: 'Auto',
+  },
+  {
+    id: uuidv4(),
+    triggerLabel: 'Hot',
+    triggerColor: 'hot',
+    trigger: 'Lead gives budget → matches to listings',
+    question: 'Lead: "My budget is around 400–500k"',
+    answer: "Perfect! We have 3 properties in that range right now. A 3-bed in East Legon at GHS 480k, a 4-bed in Labone at GHS 460k, and a 3-bed in Airport Res at GHS 495k. Want me to send you details on any of these? 📋",
+    usedCount: 420,
+    continueRate: 76,
+    autoTag: 'Escalates',
+  },
+  {
+    id: uuidv4(),
+    triggerLabel: 'Cold',
+    triggerColor: 'cold',
+    trigger: 'Lead goes cold — no reply for 24 hours',
+    question: 'Lead: [no response]',
+    answer: "Hey! 👋 Just checking in — did you get a chance to look at those listings? We have some new properties that just came in. Let me know if you'd like more info 🏠",
+    usedCount: 312,
+    continueRate: 41,
+    autoTag: 'Auto · Day 2',
+  },
+];
+
+module.exports = { leads, properties, conversations, pipelineDeals, followUps, campaigns, aiResponseTemplates };
