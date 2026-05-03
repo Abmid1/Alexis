@@ -32,7 +32,7 @@ export default function Dashboard() {
         const dayStart = new Date(now - (6 - i) * 86400000); dayStart.setHours(0,0,0,0);
         const dayEnd   = new Date(dayStart.getTime() + 86400000);
         const count = allLeads.filter((l: any) => {
-          const d = new Date(l.added_at || l.addedAt || l.created_at);
+          const d = new Date(l.addedAt || l.createdAt);
           return d >= dayStart && d < dayEnd;
         }).length;
         return count;

@@ -2,6 +2,20 @@ import { authStore } from './auth';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+/** Convert snake_case keys to camelCase recursively */
+function toCamel(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(toCamel);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [
+        k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()),
+        toCamel(v),
+      ])
+    );
+  }
+  return obj;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = authStore.getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -20,7 +34,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `API error ${res.status}`);
   }
-  return res.json();
+  return res.json().then(toCamel);
 }
 
 export const api = {

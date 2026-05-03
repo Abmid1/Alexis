@@ -26,7 +26,7 @@ export default function SignupPage() {
     try {
       const { token, user: userData } = await api.auth.register({ name: form.name, email: form.email, password: form.password });
       login(token, userData);
-      router.replace('/');
+      router.replace('/login');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally { setLoading(false); }

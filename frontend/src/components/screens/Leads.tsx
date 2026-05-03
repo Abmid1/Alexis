@@ -13,6 +13,7 @@ interface LeadsProps { showModal: boolean; onModalClose: () => void; }
 
 export default function Leads({ showModal, onModalClose }: LeadsProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [sourceFilter, setSourceFilter] = useState<string>('');
   const [form, setForm] = useState({ name: '', source: 'WhatsApp', interest: '', budget: '' });
@@ -26,6 +27,7 @@ export default function Leads({ showModal, onModalClose }: LeadsProps) {
   };
 
   useEffect(() => { load(statusFilter, sourceFilter); }, [statusFilter, sourceFilter]);
+  useEffect(() => { api.leads.stats().then(setStats).catch(() => {}); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,10 +46,10 @@ export default function Leads({ showModal, onModalClose }: LeadsProps) {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
-        <MetricCard label="Total leads" value="256" change="All time" />
-        <MetricCard label="New today" value="14" change="+3 from yesterday" />
-        <MetricCard label="AI qualified" value="89" change="35% rate" />
-        <MetricCard label="Avg response" value="47 sec" change="AI-powered" small />
+        <MetricCard label="Total leads"   value={stats ? String(stats.total)        : '…'} change="All time" />
+        <MetricCard label="New today"     value={stats ? String(stats.newToday)     : '…'} change="Added today" />
+        <MetricCard label="AI qualified"  value={stats ? String(stats.aiQualified)  : '…'} change={stats ? `${stats.total ? Math.round((stats.aiQualified / stats.total) * 100) : 0}% rate` : '…'} />
+        <MetricCard label="Avg response"  value="47 sec" change="AI-powered" small />
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
