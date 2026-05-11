@@ -17,6 +17,8 @@ export interface Lead {
   aiScore: number | null;
   added: string;
   addedAt: string;
+  lastContactedAt: string | null;
+  dueForFollowUp: boolean;
 }
 
 export interface Property {
@@ -29,6 +31,8 @@ export interface Property {
   emoji: string;
   color: string;
   addedAt: string;
+  images?: string[];     // public URLs from Supabase Storage
+  videoUrl?: string;     // YouTube link, Vimeo link, or direct video URL
 }
 
 export interface Message {

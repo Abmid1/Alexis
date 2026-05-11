@@ -15,6 +15,9 @@ const timeAgo = (iso) => {
   return `${Math.floor(hrs / 24)} days ago`;
 };
 
+// Follow-up thresholds per status (hours)
+const FOLLOW_UP_HOURS = { Hot: 4, Warm: 24, New: 2, Cold: 168, Qualified: Infinity };
+
 const fmt = (l) => ({ ...l, added: timeAgo(l.created_at) });
 
 // GET /api/leads
@@ -23,9 +26,53 @@ router.get('/', async (req, res) => {
   let q = supabase.from('leads').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false });
   if (status) q = q.eq('status', status);
   if (source) q = q.eq('source', source);
-  const { data, error } = await q;
+  const { data: leads, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(fmt));
+
+  // ── Enrich with "last contacted" data ──────────────────────────────
+  const { data: conversations } = await supabase
+    .from('conversations')
+    .select('id, name')
+    .eq('user_id', req.user.id);
+
+  // name → conversation_id map
+  const nameToConvId = {};
+  (conversations || []).forEach(c => { nameToConvId[c.name] = c.id; });
+
+  // Batch-fetch last outbound/ai message per relevant conversation
+  const convIds = leads.map(l => nameToConvId[l.name]).filter(Boolean);
+  let lastContactMap = {};
+
+  if (convIds.length > 0) {
+    const { data: lastMsgs } = await supabase
+      .from('messages')
+      .select('conversation_id, created_at')
+      .in('conversation_id', convIds)
+      .in('type', ['out', 'ai'])
+      .order('created_at', { ascending: false });
+
+    (lastMsgs || []).forEach(m => {
+      if (!lastContactMap[m.conversation_id]) {
+        lastContactMap[m.conversation_id] = m.created_at;
+      }
+    });
+  }
+
+  const enriched = leads.map(l => {
+    const convId   = nameToConvId[l.name];
+    const lastAt   = convId ? (lastContactMap[convId] || null) : null;
+    const threshold = FOLLOW_UP_HOURS[l.status] ?? Infinity;
+    const hoursSince = lastAt
+      ? (Date.now() - new Date(lastAt).getTime()) / 3_600_000
+      : Infinity;
+    return {
+      ...fmt(l),
+      last_contacted_at: lastAt,
+      due_for_follow_up: hoursSince >= threshold,
+    };
+  });
+
+  res.json(enriched);
 });
 
 // GET /api/leads/stats

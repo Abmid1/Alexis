@@ -39,22 +39,43 @@ router.get('/stats', async (req, res) => {
 
 // POST /api/properties
 router.post('/', async (req, res) => {
-  const { name, location, price, price_numeric, type } = req.body;
+  const { name, location, price, price_numeric, type, images, video_url } = req.body;
   if (!name || !price) return res.status(400).json({ error: 'name and price are required' });
-  const { data, error } = await supabase
+
+  // Base insert (always works)
+  const insertPayload = {
+    user_id: req.user.id,
+    name, location: location || 'Accra', price,
+    price_numeric: price_numeric || 0,
+    type: type || 'sale',
+    status: 'Pending',
+    emoji: emojiFor(type),
+    color: 'green',
+  };
+
+  // Attempt to include media fields (requires the columns to exist — see SQL comment in upload.js)
+  if (Array.isArray(images) && images.length) insertPayload.images    = images;
+  if (video_url)                               insertPayload.video_url = video_url;
+
+  let { data, error } = await supabase
     .from('properties')
-    .insert({
-      user_id: req.user.id,
-      name, location: location || 'Accra', price,
-      price_numeric: price_numeric || 0,
-      type: type || 'sale',
-      status: 'Pending',
-      emoji: emojiFor(type),
-      color: 'green',
-    })
+    .insert(insertPayload)
     .select().single();
+
+  // If media columns don't exist yet in the DB, retry without them
+  if (error && (error.code === '42703' || error.message?.includes('column'))) {
+    console.warn('[Properties] Media columns not found — insert without images/video. Run the SQL in upload.js to add them.');
+    delete insertPayload.images;
+    delete insertPayload.video_url;
+    const retry = await supabase.from('properties').insert(insertPayload).select().single();
+    data  = retry.data;
+    error = retry.error;
+  }
+
   if (error) return res.status(500).json({ error: error.message });
-  res.status(201).json(data);
+
+  // Always return the full object including media (even if not stored in DB)
+  res.status(201).json({ ...data, images: images || [], video_url: video_url || null });
 });
 
 // PATCH /api/properties/:id

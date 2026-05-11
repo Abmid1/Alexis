@@ -63,6 +63,7 @@ export const api = {
     list:        () => request<any[]>('/api/conversations'),
     get:         (id: string) => request<any>(`/api/conversations/${id}`),
     sendMessage: (id: string, text: string) => request<any>(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ text }) }),
+    toggleAI:    (id: string) => request<any>(`/api/conversations/${id}/toggle-ai`, { method: 'POST' }),
   },
   pipeline: {
     get:    () => request<any>('/api/pipeline'),
@@ -81,5 +82,22 @@ export const api = {
     list:   () => request<any[]>('/api/airesponses'),
     create: (body: any) => request<any>('/api/airesponses', { method: 'POST', body: JSON.stringify(body) }),
     remove: (id: string) => request<any>(`/api/airesponses/${id}`, { method: 'DELETE' }),
+  },
+  autoFollowups: {
+    list:        () => request<any[]>('/api/auto-followups'),
+    triggerRun:  () => request<any>('/api/auto-followups/run', { method: 'POST' }),
+  },
+  aiReport: {
+    chat: (messages: { role: string; content: string }[]) =>
+      request<{ reply: string }>('/api/ai-report', { method: 'POST', body: JSON.stringify({ messages }) }),
+  },
+  upload: {
+    /**
+     * Upload files to Supabase Storage via the backend.
+     * Pass an array of { name, type, data } where data is a raw base64 string (no data: prefix).
+     * Returns { urls: string[] }
+     */
+    media: (files: { name: string; type: string; data: string }[]) =>
+      request<{ urls: string[] }>('/api/upload', { method: 'POST', body: JSON.stringify({ files }) }),
   },
 };

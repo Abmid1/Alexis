@@ -30,24 +30,53 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F7F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', padding: '20px' }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
+    <div style={{
+      minHeight: '100vh',
+      background: '#111113',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'var(--font-sans)',
+      padding: '20px',
+    }}>
+      <div style={{ width: '100%', maxWidth: 360 }}>
+
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 12, background: '#1D9E75', marginBottom: 12 }}>
-            <span style={{ color: '#E1F5EE', fontSize: 20, fontWeight: 700 }}>B</span>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 44, height: 44, borderRadius: 12,
+            background: '#1D9E75',
+            marginBottom: 14,
+            boxShadow: '0 0 28px rgba(29,158,117,0.3)',
+          }}>
+            <span style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>B</span>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: '0.05em' }}>BILT AFRICA</div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>Agent CRM · Accra</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#E4E4E7', letterSpacing: '0.02em' }}>Bilt Africa</div>
+          <div style={{ fontSize: 11, color: '#62626A', marginTop: 3 }}>Real Estate CRM · Accra</div>
         </div>
 
         {/* Card */}
-        <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid var(--color-border-tertiary)', padding: '28px 28px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <h1 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4 }}>Welcome back</h1>
-          <p style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginBottom: 22 }}>Sign in to your CRM account</p>
+        <div style={{
+          background: '#1C1C1F',
+          borderRadius: 12,
+          border: '1px solid #2A2A2E',
+          padding: '26px 26px 22px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        }}>
+          <h1 style={{ fontSize: 14, fontWeight: 600, color: '#E4E4E7', marginBottom: 4 }}>Welcome back</h1>
+          <p style={{ fontSize: 11, color: '#62626A', marginBottom: 22 }}>Sign in to your CRM account</p>
 
           {error && (
-            <div style={{ background: '#FAECE7', border: '0.5px solid #f0b9a8', borderRadius: 6, padding: '9px 12px', fontSize: 11, color: '#993C1D', marginBottom: 16 }}>
+            <div style={{
+              background: 'rgba(216,90,48,0.12)',
+              border: '1px solid rgba(216,90,48,0.25)',
+              borderRadius: 6,
+              padding: '9px 12px',
+              fontSize: 11,
+              color: '#F87171',
+              marginBottom: 16,
+            }}>
               {error}
             </div>
           )}
@@ -66,26 +95,36 @@ export default function LoginPage() {
                   value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                   placeholder="Enter your password" style={{ paddingRight: 36 }} />
                 <button type="button" onClick={() => setShowPw(!showPw)}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#62626A' }}>
                   {showPw ? '🙈' : '👁'}
                 </button>
               </div>
             </div>
 
-            <div style={{ textAlign: 'right', marginBottom: 18 }}>
-              <Link href="/forgot-password" style={{ fontSize: 10, color: '#1D9E75', textDecoration: 'none' }}>Forgot password?</Link>
+            <div style={{ textAlign: 'right', marginBottom: 20 }}>
+              <Link href="/forgot-password" style={{ fontSize: 10, color: '#34D399', textDecoration: 'none' }}>Forgot password?</Link>
             </div>
 
-            <button type="submit" disabled={loading}
-              style={{ width: '100%', padding: '10px', background: loading ? '#aaa' : '#1D9E75', color: '#E1F5EE', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+            <button type="submit" disabled={loading} style={{
+              width: '100%',
+              padding: '9px',
+              background: loading ? '#2A2A2E' : '#1D9E75',
+              color: loading ? '#62626A' : '#fff',
+              border: 'none',
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
+            }}>
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 16 }}>
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#62626A', marginTop: 16 }}>
           Don&apos;t have an account?{' '}
-          <Link href="/signup" style={{ color: '#1D9E75', fontWeight: 500, textDecoration: 'none' }}>Create one</Link>
+          <Link href="/signup" style={{ color: '#34D399', fontWeight: 500, textDecoration: 'none' }}>Create one</Link>
         </p>
       </div>
     </div>

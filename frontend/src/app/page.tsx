@@ -26,12 +26,12 @@ export default function Home() {
 
   if (isLoading || !user) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F7F7F6' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111113' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D9E75', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#E1F5EE', fontSize: 14, fontWeight: 700 }}>B</span>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#1D9E75', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(29,158,117,0.35)' }}>
+            <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>B</span>
           </div>
-          <div style={{ fontSize: 11, color: '#888780' }}>Loading…</div>
+          <div style={{ fontSize: 11, color: '#62626A', letterSpacing: '0.04em' }}>Loading…</div>
         </div>
       </div>
     );
