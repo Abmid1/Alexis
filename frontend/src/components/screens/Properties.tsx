@@ -220,17 +220,20 @@ export default function Properties({ showModal, onModalClose }: Props) {
   return (
     <div>
       {/* ── Stats ──────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
         {[
-          { label: 'Listed',      val: stats?.listed ?? '…',       change: 'Active inventory', sm: false },
-          { label: 'For sale',    val: stats?.forSaleCount ?? '…', change: stats?.saleValueFmt ?? '', sm: false },
-          { label: 'For rent',    val: stats?.forRentCount ?? '…', change: stats?.rentValueFmt ?? '', sm: false },
-          { label: 'Total value', val: stats?.saleValueFmt ?? '…', change: 'Sale listings',    sm: true },
+          { label: 'Listed',      val: stats?.listed ?? '…',       change: 'Active inventory', icon: '🏘️', sm: false },
+          { label: 'For sale',    val: stats?.forSaleCount ?? '…', change: stats?.saleValueFmt ?? 'Portfolio value', icon: '🏷️', sm: false },
+          { label: 'For rent',    val: stats?.forRentCount ?? '…', change: stats?.rentValueFmt ?? 'Monthly value',   icon: '🔑', sm: false },
+          { label: 'Total value', val: stats?.saleValueFmt ?? '…', change: 'Sale listings',    icon: '💰', sm: true },
         ].map((m) => (
           <div key={m.label} className="metric-card">
-            <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginBottom: 3 }}>{m.label}</div>
-            <div style={{ fontSize: m.sm ? 14 : 22, fontWeight: 500, color: 'var(--color-text-primary)', lineHeight: 1 }}>{String(m.val)}</div>
-            <div style={{ fontSize: 10, marginTop: 3, color: 'var(--color-text-tertiary)' }}>{m.change}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{m.label}</div>
+              <span style={{ fontSize: 16, opacity: 0.5 }}>{m.icon}</span>
+            </div>
+            <div style={{ fontSize: m.sm ? 26 : 36, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 10 }}>{String(m.val)}</div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>{m.change}</div>
           </div>
         ))}
       </div>
@@ -245,11 +248,13 @@ export default function Properties({ showModal, onModalClose }: Props) {
 
       {/* ── Property cards ──────────────────────────────────────── */}
       {properties.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-          No properties yet. Click <strong>+ Add property</strong> to list your first one.
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🏡</div>
+          <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, fontSize: 15 }}>No properties listed yet</div>
+          <div>Click <strong>+ Add property</strong> to add your first listing.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
           {properties.map((p: any) => {
             const hasImages = p.images?.length > 0;
             const hasVideo  = !!p.videoUrl || !!p.video_url;
@@ -257,58 +262,84 @@ export default function Properties({ showModal, onModalClose }: Props) {
             const ytIdCard  = getYouTubeId(vidUrl);
 
             return (
-              <div key={p.id} style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)', overflow: 'hidden' }}>
-
-                {/* Property banner — real photo if available, else emoji */}
-                <div style={{ height: 110, position: 'relative', overflow: 'hidden', cursor: hasImages ? 'pointer' : 'default' }}
+              <div key={p.id} style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                overflow: 'hidden',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+              }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(52,211,153,0.35)';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                }}
+              >
+                {/* Banner image */}
+                <div style={{ height: 160, position: 'relative', overflow: 'hidden', cursor: hasImages ? 'pointer' : 'default' }}
                   onClick={() => hasImages && setLightboxSrc(p.images[0])}>
                   {hasImages ? (
-                    <img
-                      src={p.images[0]}
-                      alt={p.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    <img src={p.images[0]} alt={p.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease' }}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                     />
                   ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, background: colorMap[p.color] || '#E1F5EE' }}>
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: colorMap[p.color] || '#E1F5EE' }}>
                       {p.emoji}
                     </div>
                   )}
-
-                  {/* Overlay badges */}
-                  <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4 }}>
+                  {/* Gradient overlay at bottom */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(transparent, rgba(0,0,0,0.55))' }} />
+                  {/* Top badges */}
+                  <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
                     {hasImages && p.images.length > 1 && (
-                      <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 8, backdropFilter: 'blur(2px)' }}>
+                      <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
                         📷 {p.images.length}
                       </span>
                     )}
                     {hasVideo && (
-                      <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 8, backdropFilter: 'blur(2px)' }}>
+                      <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
                         ▶ Video
                       </span>
                     )}
                   </div>
+                  {/* Price on image */}
+                  <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 14, fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                    {p.price}
+                  </div>
                 </div>
 
                 {/* Card body */}
-                <div style={{ padding: '9px 10px' }}>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-text-primary)' }}>{p.name}</div>
-                  <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 1 }}>{p.location}</div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: '#1D9E75', marginTop: 5 }}>{p.price}</div>
-                  <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                    <Tag label={p.type} /><Tag label={p.status} />
+                <div style={{ padding: '14px 14px 12px' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.3 }}>
+                    {p.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z"/>
+                      <circle cx="8" cy="6" r="1.5"/>
+                    </svg>
+                    {p.location}
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    <Tag label={p.type} />
+                    <Tag label={p.status} />
                   </div>
 
-                  {/* YouTube embed thumbnail */}
+                  {/* YouTube embed */}
                   {hasVideo && ytIdCard && (
                     <a href={vidUrl} target="_blank" rel="noreferrer"
-                      style={{ display: 'block', marginTop: 7, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
-                      <img
-                        src={`https://img.youtube.com/vi/${ytIdCard}/mqdefault.jpg`}
-                        alt="Video preview"
-                        style={{ width: '100%', height: 50, objectFit: 'cover', display: 'block' }}
-                      />
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                        <span style={{ fontSize: 16 }}>▶</span>
+                      style={{ display: 'block', marginTop: 10, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+                      <img src={`https://img.youtube.com/vi/${ytIdCard}/mqdefault.jpg`} alt="Video preview"
+                        style={{ width: '100%', height: 60, objectFit: 'cover', display: 'block' }} />
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 12, marginLeft: 2 }}>▶</span>
+                        </div>
                       </div>
                     </a>
                   )}
@@ -316,8 +347,8 @@ export default function Properties({ showModal, onModalClose }: Props) {
                   {/* Direct video link */}
                   {hasVideo && !ytIdCard && (
                     <a href={vidUrl} target="_blank" rel="noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 10, color: '#1D9E75', textDecoration: 'none' }}>
-                      ▶ Watch property video
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, fontSize: 11, fontWeight: 500, color: '#1D9E75', textDecoration: 'none' }}>
+                      <span>▶</span> Watch property video
                     </a>
                   )}
                 </div>

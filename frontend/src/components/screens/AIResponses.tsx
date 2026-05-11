@@ -77,11 +77,21 @@ export default function AIResponses({ showModal, onModalClose }: AIResponsesProp
     <div>
 
       {/* ── Stats ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
-        <StatPill label="Templates active" value={String(templates.length)} />
-        <StatPill label="Times AI used a template" value={totalUsed > 0 ? totalUsed.toLocaleString() : '—'} />
-        <StatPill label="AI response time" value="3–5 sec" />
-        <StatPill label="Topics covered" value={String(templates.length)} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Templates active',       val: String(templates.length),                          icon: '📋' },
+          { label: 'Times AI used template', val: totalUsed > 0 ? totalUsed.toLocaleString() : '—',  icon: '🤖' },
+          { label: 'AI response time',       val: '3–5 sec',                                         icon: '⚡' },
+          { label: 'Topics covered',         val: String(templates.length),                          icon: '🎯' },
+        ].map(m => (
+          <div key={m.label} className="metric-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{m.label}</div>
+              <span style={{ fontSize: 16, opacity: 0.5 }}>{m.icon}</span>
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 10 }}>{m.val}</div>
+          </div>
+        ))}
       </div>
 
       {/* ── How it works banner ───────────────────────────────────────── */}
@@ -154,11 +164,11 @@ export default function AIResponses({ showModal, onModalClose }: AIResponsesProp
                   <Tag label={t.triggerLabel} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {t.trigger}
                     </div>
                     {!isOpen && (
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {t.question}
                       </div>
                     )}

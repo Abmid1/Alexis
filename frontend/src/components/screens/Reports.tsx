@@ -133,23 +133,34 @@ export default function Reports() {
       <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Metric cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
-          <MetricCard label="Total revenue"      value={data.metrics.totalRevenue}           change="+22% vs last mo" small />
-          <MetricCard label="Deals closed"       value={data.metrics.dealsClosedCount}       change="+35%" />
-          <MetricCard label="Lead → close rate"  value={`${data.metrics.leadToCloseRate}%`}  change="+2pts" />
-          <MetricCard label="AI save rate"       value={`${data.metrics.aiSaveRate}%`}       change="Leads caught by AI" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+          <MetricCard label="Total revenue"     value={data.metrics.totalRevenue}          change="+22% vs last mo" changeType="up"   small icon="💵" />
+          <MetricCard label="Deals closed"      value={data.metrics.dealsClosedCount}      change="+35% this month" changeType="up"         icon="🤝" />
+          <MetricCard label="Lead → close rate" value={`${data.metrics.leadToCloseRate}%`} change="+2pts"           changeType="up"         icon="📈" />
+          <MetricCard label="AI save rate"      value={`${data.metrics.aiSaveRate}%`}      change="Caught by AI"   changeType="neutral"    icon="🤖" />
         </div>
 
         {/* Revenue chart */}
         <div className="card">
-          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            Revenue by month
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>GHS</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Revenue by month</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Commission earned (GHS)</div>
+            </div>
+            <span style={{ fontSize: 11, color: 'var(--accent-light)', fontWeight: 500, background: 'rgba(52,211,153,0.1)', padding: '3px 10px', borderRadius: 20 }}>
+              This year
+            </span>
           </div>
           <div className="chart-bars">
             {data.revenueByMonth.map(({ month, value }) => (
               <div key={month} className="bar-wrap">
-                <div className="bar" style={{ height: value, background: month === 'May' ? 'var(--accent)' : 'var(--bg-hover)' }} />
+                <div className="bar" style={{
+                  height: value,
+                  background: month === 'May'
+                    ? 'linear-gradient(180deg, #34D399 0%, #1D9E75 100%)'
+                    : 'linear-gradient(180deg, var(--bg-hover) 0%, var(--bg-active) 100%)',
+                  boxShadow: month === 'May' ? '0 0 12px rgba(52,211,153,0.3)' : 'none',
+                }} />
                 <div className="bar-lbl">{month}</div>
               </div>
             ))}
@@ -158,28 +169,34 @@ export default function Reports() {
 
         {/* Conversion by source */}
         <div className="card">
-          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 10 }}>Conversion by source</div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Conversion by source</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>% of leads that closed</div>
+          </div>
           {data.conversionBySource.map(({ source, rate, color }) => (
-            <div key={source} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', width: 85 }}>{source}</div>
-              <div style={{ flex: 1, height: 5, background: 'var(--bg-hover)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 3, background: color, width: `${rate}%`, transition: 'width 0.6s ease' }} />
+            <div key={source} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', width: 90, flexShrink: 0 }}>{source}</div>
+              <div style={{ flex: 1, height: 7, background: 'var(--bg-hover)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 4, background: color, width: `${rate}%`, transition: 'width 0.8s ease' }} />
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 500, width: 36, textAlign: 'right' }}>{rate}%</div>
+              <div style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 700, width: 40, textAlign: 'right' }}>{rate}%</div>
             </div>
           ))}
         </div>
 
         {/* Top neighborhoods */}
         <div className="card">
-          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 10 }}>Top performing neighborhoods</div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Top neighborhoods</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Areas generating the most deals</div>
+          </div>
           {data.topNeighborhoods.map(({ name, deals, pct }) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', width: 85 }}>{name}</div>
-              <div style={{ flex: 1, height: 5, background: 'var(--bg-hover)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 3, background: 'var(--accent)', width: `${pct}%`, transition: 'width 0.6s ease' }} />
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', width: 90, flexShrink: 0 }}>{name}</div>
+              <div style={{ flex: 1, height: 7, background: 'var(--bg-hover)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg, #1D9E75, #34D399)', width: `${pct}%`, transition: 'width 0.8s ease' }} />
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 500, width: 50, textAlign: 'right' }}>{deals} deals</div>
+              <div style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 700, width: 60, textAlign: 'right', flexShrink: 0 }}>{deals} deals</div>
             </div>
           ))}
         </div>
