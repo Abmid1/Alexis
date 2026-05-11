@@ -11,7 +11,8 @@ app.use(cors({
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:5000",
-    "https://alexis-gqtzfsj0j-tipagya518-3934s-projects.vercel.app"
+    "https://alexis-gqtzfsj0j-tipagya518-3934s-projects.vercel.app",
+    "https://alexis-pearl.vercel.app"
   ],
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
