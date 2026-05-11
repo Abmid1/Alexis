@@ -18,6 +18,8 @@ app.use(cors({
   credentials: true
 }));
 
+app.options("*", cors());
+
 // Increase body limit for base64-encoded image uploads (compressed ~300KB each × 12 = ~4MB)
 app.use(express.json({ limit: '20mb' }));
 
