@@ -37,7 +37,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${res.status}`);
+    const err = new Error(body.error || `API error ${res.status}`);
+    if (body.sql)    (err as any).sql    = body.sql;
+    if (body.detail) (err as any).detail = body.detail;
+    throw err;
   }
   return res.json().then(toCamel);
 }

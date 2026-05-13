@@ -49,11 +49,24 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+async function checkMediaColumns() {
+  const supabase = require('./lib/supabase');
+  const { error } = await supabase.from('properties').select('images').limit(0);
+  if (error && error.code === '42703') {
+    console.error('\n⛔  MIGRATION REQUIRED — images will not persist until you run this SQL');
+    console.error('    in your Supabase SQL Editor (https://supabase.com/dashboard → SQL Editor):\n');
+    console.error("    ALTER TABLE properties");
+    console.error("      ADD COLUMN IF NOT EXISTS images    jsonb DEFAULT '[]',");
+    console.error("      ADD COLUMN IF NOT EXISTS video_url text;\n");
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`\n✅  BILT AFRICA API → http://localhost:${PORT}`);
   console.log(`   Supabase: ${process.env.SUPABASE_URL || 'NOT SET'}\n`);
 
-  // Start proactive AI follow-up scheduler
+  checkMediaColumns();
+
   const { startFollowUpScheduler } = require('./jobs/followupScheduler');
   startFollowUpScheduler();
 });

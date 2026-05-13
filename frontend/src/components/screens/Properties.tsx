@@ -80,6 +80,7 @@ export default function Properties({ showModal, onModalClose }: Props) {
   // UI state
   const [saving, setSaving]           = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [migrationSql, setMigrationSql] = useState('');
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const load = (type: string) => {
@@ -139,6 +140,7 @@ export default function Properties({ showModal, onModalClose }: Props) {
     setVideoUrl('');
     setVideoTab('url');
     setUploadProgress('');
+    setMigrationSql('');
   };
 
   const handleClose = () => {
@@ -201,7 +203,12 @@ export default function Properties({ showModal, onModalClose }: Props) {
       setForm({ name: '', location: '', price: '', price_numeric: '', type: 'sale' });
       onModalClose();
     } catch (err: any) {
-      setUploadProgress(`Error: ${err.message}`);
+      if (err.sql) {
+        setMigrationSql(err.sql);
+        setUploadProgress(`Database migration required — images won't persist until you run the SQL below.`);
+      } else {
+        setUploadProgress(`Error: ${err.message}`);
+      }
     } finally {
       setSaving(false);
     }
@@ -520,8 +527,18 @@ export default function Properties({ showModal, onModalClose }: Props) {
 
             {/* ── Upload progress / error ─────────────────────────── */}
             {uploadProgress && (
-              <div style={{ marginTop: 10, fontSize: 10, color: uploadProgress.startsWith('Error') ? '#993C1D' : '#1D9E75', background: uploadProgress.startsWith('Error') ? '#FAECE7' : '#E1F5EE', borderRadius: 6, padding: '6px 10px' }}>
-                {uploadProgress.startsWith('Error') ? '❌' : '⏳'} {uploadProgress}
+              <div style={{ marginTop: 10, fontSize: 10, color: uploadProgress.startsWith('Error') || migrationSql ? '#993C1D' : '#1D9E75', background: uploadProgress.startsWith('Error') || migrationSql ? '#FAECE7' : '#E1F5EE', borderRadius: 6, padding: '6px 10px' }}>
+                {uploadProgress.startsWith('Error') || migrationSql ? '❌' : '⏳'} {uploadProgress}
+              </div>
+            )}
+            {migrationSql && (
+              <div style={{ marginTop: 8, borderRadius: 6, border: '1px solid rgba(216,90,48,0.3)', overflow: 'hidden' }}>
+                <div style={{ background: 'rgba(216,90,48,0.1)', padding: '5px 10px', fontSize: 9, fontWeight: 600, color: '#993C1D', letterSpacing: '0.04em' }}>
+                  RUN THIS ONCE IN SUPABASE SQL EDITOR → supabase.com/dashboard
+                </div>
+                <pre style={{ margin: 0, padding: '8px 10px', fontSize: 10, color: '#E4E4E7', background: '#1A1A1D', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                  {migrationSql}
+                </pre>
               </div>
             )}
 

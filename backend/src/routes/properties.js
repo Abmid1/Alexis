@@ -57,25 +57,23 @@ router.post('/', async (req, res) => {
   if (Array.isArray(images) && images.length) insertPayload.images    = images;
   if (video_url)                               insertPayload.video_url = video_url;
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from('properties')
     .insert(insertPayload)
     .select().single();
 
-  // If media columns don't exist yet in the DB, retry without them
-  if (error && (error.code === '42703' || error.message?.includes('column'))) {
-    console.warn('[Properties] Media columns not found — insert without images/video. Run the SQL in upload.js to add them.');
-    delete insertPayload.images;
-    delete insertPayload.video_url;
-    const retry = await supabase.from('properties').insert(insertPayload).select().single();
-    data  = retry.data;
-    error = retry.error;
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('column')) {
+      return res.status(500).json({
+        error: 'Database migration required',
+        detail: 'The properties table is missing the images/video_url columns. Run this SQL in your Supabase SQL Editor to fix it:',
+        sql: "ALTER TABLE properties ADD COLUMN IF NOT EXISTS images jsonb DEFAULT '[]', ADD COLUMN IF NOT EXISTS video_url text;",
+      });
+    }
+    return res.status(500).json({ error: error.message });
   }
 
-  if (error) return res.status(500).json({ error: error.message });
-
-  // Always return the full object including media (even if not stored in DB)
-  res.status(201).json({ ...data, images: images || [], video_url: video_url || null });
+  res.status(201).json(data);
 });
 
 // PATCH /api/properties/:id
