@@ -63,7 +63,7 @@ export default function Properties({ showModal, onModalClose }: Props) {
   const [typeFilter, setTypeFilter]   = useState('all');
 
   // Basic form
-  const [form, setForm] = useState({ name: '', location: '', price: '', price_numeric: '', type: 'sale' });
+  const [form, setForm] = useState({ name: '', location: '', price: '', price_numeric: '', type: 'sale', status: 'Available' });
 
   // Image state
   type ImgEntry = { preview: string; file: File };
@@ -145,7 +145,7 @@ export default function Properties({ showModal, onModalClose }: Props) {
 
   const handleClose = () => {
     resetMedia();
-    setForm({ name: '', location: '', price: '', price_numeric: '', type: 'sale' });
+    setForm({ name: '', location: '', price: '', price_numeric: '', type: 'sale', status: 'Available' });
     onModalClose();
   };
 
@@ -195,12 +195,13 @@ export default function Properties({ showModal, onModalClose }: Props) {
         price_numeric: parseInt(form.price_numeric.replace(/[^0-9]/g, ''), 10) || 0,
         images:    imageUrls,
         video_url: finalVideoUrl || null,
+        status:    form.status,
       });
 
       setProperties((prev) => [prop, ...prev]);
       setStats((s: any) => s ? { ...s, listed: s.listed + 1 } : s);
       resetMedia();
-      setForm({ name: '', location: '', price: '', price_numeric: '', type: 'sale' });
+      setForm({ name: '', location: '', price: '', price_numeric: '', type: 'sale', status: 'Available' });
       onModalClose();
     } catch (err: any) {
       if (err.sql) {
@@ -216,10 +217,12 @@ export default function Properties({ showModal, onModalClose }: Props) {
 
   // ── Filters ──────────────────────────────────────────────────────
   const filters = [
-    { key: 'all',  label: `All (${stats?.listed ?? '…'})` },
-    { key: 'sale', label: `For sale (${stats?.forSaleCount ?? '…'})` },
-    { key: 'rent', label: `For rent (${stats?.forRentCount ?? '…'})` },
-    { key: 'land', label: 'Land' },
+    { key: 'all',       label: `All (${stats?.listed ?? '…'})` },
+    { key: 'sale',      label: `For sale (${stats?.forSaleCount ?? '…'})` },
+    { key: 'rent',      label: `For rent (${stats?.forRentCount ?? '…'})` },
+    { key: 'land',      label: 'Land' },
+    { key: 'available', label: 'Available' },
+    { key: 'sold',      label: 'Sold' },
   ];
 
   const ytId = getYouTubeId(videoUrl);
@@ -250,7 +253,6 @@ export default function Properties({ showModal, onModalClose }: Props) {
         {filters.map((f) => (
           <button key={f.key} className={`filter-btn${typeFilter === f.key ? ' sel' : ''}`} onClick={() => setTypeFilter(f.key)}>{f.label}</button>
         ))}
-        <button className="filter-btn">Verified ✓</button>
       </div>
 
       {/* ── Property cards ──────────────────────────────────────── */}
@@ -332,9 +334,21 @@ export default function Properties({ showModal, onModalClose }: Props) {
                     </svg>
                     {p.location}
                   </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Tag label={p.type} />
-                    <Tag label={p.status} />
+                    {/* Status — click to cycle through statuses */}
+                    <button
+                      title="Click to change status"
+                      onClick={async () => {
+                        const cycle = ['Available', 'Sold', 'Rented', 'Off Market'];
+                        const next = cycle[(cycle.indexOf(p.status) + 1) % cycle.length];
+                        await api.properties.update(p.id, { status: next }).catch(() => {});
+                        setProperties(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x));
+                      }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}
+                    >
+                      <Tag label={p.status} />
+                    </button>
                   </div>
 
                   {/* YouTube embed */}
@@ -415,6 +429,20 @@ export default function Properties({ showModal, onModalClose }: Props) {
                 <option value="rent">For Rent</option>
                 <option value="land">Land</option>
               </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Status</label>
+              <select className="form-select" value={form.status}
+                onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
+                <option value="Available">Available</option>
+                <option value="Sold">Sold</option>
+                <option value="Rented">Rented</option>
+                <option value="Off Market">Off Market</option>
+              </select>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                You can change this anytime directly on the property card.
+              </div>
             </div>
 
             {/* ── Photos ─────────────────────────────────────────── */}

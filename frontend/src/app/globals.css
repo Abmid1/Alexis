@@ -98,6 +98,10 @@
 [data-theme="light"] .t-land    { background: #FAECE7; color: #993C1D; }
 [data-theme="light"] .t-verif   { background: #EAF3DE; color: #3B6D11; }
 [data-theme="light"] .t-pend    { background: #FAEEDA; color: #854F0B; }
+[data-theme="light"] .t-avail   { background: #E1F5EE; color: #0F6E56; }
+[data-theme="light"] .t-sold    { background: #EAF3DE; color: #3B6D11; }
+[data-theme="light"] .t-rented  { background: #E6F1FB; color: #185FA5; }
+[data-theme="light"] .t-offmkt  { background: #F2F2F3; color: #6A6880; }
 [data-theme="light"] .t-sched   { background: #EEEDFE; color: #534AB7; }
 [data-theme="light"] .t-done    { background: #EAF3DE; color: #3B6D11; }
 [data-theme="light"] .t-overdue { background: #FAECE7; color: #993C1D; }
@@ -260,6 +264,10 @@ body { font-family: var(--font-sans); background: var(--bg-app); color: var(--te
 .t-land   { background: rgba(216,90,48,0.15);  color: #F87171; }
 .t-verif  { background: rgba(74,222,128,0.12); color: #4ADE80; }
 .t-pend   { background: rgba(239,159,39,0.15); color: #FBBF24; }
+.t-avail  { background: rgba(29,158,117,0.15); color: #34D399; }
+.t-sold   { background: rgba(74,222,128,0.12); color: #4ADE80; }
+.t-rented { background: rgba(55,138,221,0.15); color: #60A5FA; }
+.t-offmkt { background: rgba(113,113,122,0.2); color: #A1A1AA; }
 .t-sched  { background: rgba(127,119,221,0.15);color: #A78BFA; }
 .t-done   { background: rgba(74,222,128,0.12); color: #4ADE80; }
 .t-overdue{ background: rgba(216,90,48,0.15);  color: #F87171; }

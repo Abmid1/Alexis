@@ -10,8 +10,13 @@ const emojiFor = (type) => type === 'land' ? '🌳' : type === 'rent' ? '🏢' :
 // GET /api/properties
 router.get('/', async (req, res) => {
   const { type } = req.query;
+  const STATUS_FILTERS = { available: 'Available', sold: 'Sold', rented: 'Rented', offmarket: 'Off Market' };
   let q = supabase.from('properties').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false });
-  if (type && type !== 'all') q = q.eq('type', type);
+  if (type && STATUS_FILTERS[type]) {
+    q = q.eq('status', STATUS_FILTERS[type]);
+  } else if (type && type !== 'all') {
+    q = q.eq('type', type);
+  }
   const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -39,8 +44,11 @@ router.get('/stats', async (req, res) => {
 
 // POST /api/properties
 router.post('/', async (req, res) => {
-  const { name, location, price, price_numeric, type, images, video_url } = req.body;
+  const { name, location, price, price_numeric, type, status, images, video_url } = req.body;
   if (!name || !price) return res.status(400).json({ error: 'name and price are required' });
+
+  const VALID_STATUSES = ['Available', 'Sold', 'Rented', 'Off Market'];
+  const resolvedStatus = VALID_STATUSES.includes(status) ? status : 'Available';
 
   // Base insert (always works)
   const insertPayload = {
@@ -48,7 +56,7 @@ router.post('/', async (req, res) => {
     name, location: location || 'Accra', price,
     price_numeric: price_numeric || 0,
     type: type || 'sale',
-    status: 'Pending',
+    status: resolvedStatus,
     emoji: emojiFor(type),
     color: 'green',
   };

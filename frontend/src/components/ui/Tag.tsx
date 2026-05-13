@@ -3,6 +3,9 @@ import { LeadStatus, PropertyType, PropertyStatus } from '@/lib/types';
 const statusMap: Record<string, string> = {
   Hot: 't-hot', Warm: 't-warm', New: 't-new', Cold: 't-cold', Qualified: 't-qual',
   sale: 't-sale', rent: 't-rent', land: 't-land',
+  // Property statuses
+  Available: 't-avail', Sold: 't-sold', Rented: 't-rented', 'Off Market': 't-offmkt',
+  // Legacy (keep so old data doesn't break)
   Verified: 't-verif', Pending: 't-pend',
   Done: 't-done', Scheduled: 't-sched', 'AI will send': 't-ai', Overdue: 't-overdue', Active: 't-active',
   'AI active': 't-ai', 'Needs you': 't-agent',
