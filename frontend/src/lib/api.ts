@@ -61,11 +61,12 @@ export const api = {
     remove: (id: string) => request<any>(`/api/leads/${id}`, { method: 'DELETE' }),
   },
   properties: {
-    list:   (type?: string) => request<any[]>(`/api/properties${type && type !== 'all' ? '?type=' + type : ''}`),
-    stats:  () => request<any>('/api/properties/stats'),
-    create: (body: any) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: string, body: any) => request<any>(`/api/properties/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-    remove: (id: string) => request<any>(`/api/properties/${id}`, { method: 'DELETE' }),
+    list:         (type?: string) => request<any[]>(`/api/properties${type && type !== 'all' ? '?type=' + type : ''}`),
+    listArchived: () => request<any[]>('/api/properties?archived=true'),
+    stats:        () => request<any>('/api/properties/stats'),
+    create:       (body: any) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(body) }),
+    update:       (id: string, body: any) => request<any>(`/api/properties/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    remove:       (id: string) => request<any>(`/api/properties/${id}`, { method: 'DELETE' }),
   },
   conversations: {
     list:        () => request<any[]>('/api/conversations'),

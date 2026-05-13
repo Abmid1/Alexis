@@ -9,16 +9,32 @@ const emojiFor = (type) => type === 'land' ? '🌳' : type === 'rent' ? '🏢' :
 
 // GET /api/properties
 router.get('/', async (req, res) => {
-  const { type } = req.query;
+  const { type, archived } = req.query;
   const STATUS_FILTERS = { available: 'Available', sold: 'Sold', rented: 'Rented', offmarket: 'Off Market' };
+  const showArchived = archived === 'true';
+
   let q = supabase.from('properties').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false });
+
+  // Filter by archived flag (default: only show active)
+  q = q.eq('archived', showArchived);
+
   if (type && STATUS_FILTERS[type]) {
     q = q.eq('status', STATUS_FILTERS[type]);
   } else if (type && type !== 'all') {
     q = q.eq('type', type);
   }
+
   const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    // If archived column doesn't exist yet, fall back to unfiltered
+    if (error.code === '42703' || error.message?.includes('archived')) {
+      const { data: fallback, error: e2 } = await supabase
+        .from('properties').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false });
+      if (e2) return res.status(500).json({ error: e2.message });
+      return res.json(showArchived ? [] : (fallback || []));
+    }
+    return res.status(500).json({ error: error.message });
+  }
   res.json(data);
 });
 
@@ -57,6 +73,7 @@ router.post('/', async (req, res) => {
     price_numeric: price_numeric || 0,
     type: type || 'sale',
     status: resolvedStatus,
+    archived: false,
     emoji: emojiFor(type),
     color: 'green',
   };

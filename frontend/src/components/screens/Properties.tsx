@@ -59,6 +59,8 @@ function isVideoUrl(url: string): boolean {
 
 export default function Properties({ showModal, onModalClose }: Props) {
   const [properties, setProperties]   = useState<Property[]>([]);
+  const [archived, setArchived]       = useState<Property[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [stats, setStats]             = useState<any>(null);
   const [typeFilter, setTypeFilter]   = useState('all');
 
@@ -87,8 +89,27 @@ export default function Properties({ showModal, onModalClose }: Props) {
     api.properties.list(type !== 'all' ? type : undefined).then(setProperties).catch(() => {});
   };
 
+  const loadArchived = () => {
+    api.properties.listArchived().then(setArchived).catch(() => {});
+  };
+
   useEffect(() => { load(typeFilter); }, [typeFilter]);
   useEffect(() => { api.properties.stats().then(setStats).catch(() => {}); }, []);
+  useEffect(() => { loadArchived(); }, []);
+
+  const archiveProperty = async (p: any) => {
+    await api.properties.update(p.id, { archived: true }).catch(() => {});
+    setProperties(prev => prev.filter(x => x.id !== p.id));
+    setArchived(prev => [{ ...p, archived: true }, ...prev]);
+    setStats((s: any) => s ? { ...s, listed: Math.max(0, s.listed - 1) } : s);
+  };
+
+  const restoreProperty = async (p: any) => {
+    await api.properties.update(p.id, { archived: false }).catch(() => {});
+    setArchived(prev => prev.filter(x => x.id !== p.id));
+    setProperties(prev => [{ ...p, archived: false }, ...prev]);
+    setStats((s: any) => s ? { ...s, listed: (s.listed || 0) + 1 } : s);
+  };
 
   // ── Image selection ──────────────────────────────────────────────
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -334,20 +355,35 @@ export default function Properties({ showModal, onModalClose }: Props) {
                     </svg>
                     {p.location}
                   </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Tag label={p.type} />
-                    {/* Status — click to cycle through statuses */}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Tag label={p.type} />
+                      {/* Status — click to cycle through statuses */}
+                      <button
+                        title="Click to change status"
+                        onClick={async () => {
+                          const cycle = ['Available', 'Sold', 'Rented', 'Off Market'];
+                          const next = cycle[(cycle.indexOf(p.status) + 1) % cycle.length];
+                          await api.properties.update(p.id, { status: next }).catch(() => {});
+                          setProperties(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x));
+                        }}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}
+                      >
+                        <Tag label={p.status} />
+                      </button>
+                    </div>
+                    {/* Archive button */}
                     <button
-                      title="Click to change status"
-                      onClick={async () => {
-                        const cycle = ['Available', 'Sold', 'Rented', 'Off Market'];
-                        const next = cycle[(cycle.indexOf(p.status) + 1) % cycle.length];
-                        await api.properties.update(p.id, { status: next }).catch(() => {});
-                        setProperties(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x));
+                      title="Archive this property (keeps all data)"
+                      onClick={() => archiveProperty(p)}
+                      style={{
+                        fontSize: 10, color: 'var(--text-muted)', background: 'none',
+                        border: '1px solid var(--border)', borderRadius: 5,
+                        padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
+                        lineHeight: 1.6,
                       }}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}
                     >
-                      <Tag label={p.status} />
+                      Archive
                     </button>
                   </div>
 
@@ -376,6 +412,95 @@ export default function Properties({ showModal, onModalClose }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Archived section ─────────────────────────────────────── */}
+      {archived.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '6px 0', width: '100%', textAlign: 'left',
+            }}
+          >
+            <span style={{
+              fontSize: 10, color: 'var(--text-muted)',
+              transform: showArchived ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.15s', display: 'inline-block',
+            }}>▶</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+              Archived ({archived.length})
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+              — data kept, hidden from main view
+            </span>
+          </button>
+
+          {showArchived && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginTop: 10, opacity: 0.7 }}>
+              {archived.map((p: any) => {
+                const hasImages = p.images?.length > 0;
+                const vidUrl    = p.videoUrl || p.video_url || '';
+                const ytIdCard  = getYouTubeId(vidUrl);
+                return (
+                  <div key={p.id} style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px dashed var(--border)',
+                    borderRadius: 12, overflow: 'hidden',
+                  }}>
+                    {/* Banner */}
+                    <div style={{ height: 120, position: 'relative', overflow: 'hidden' }}>
+                      {hasImages ? (
+                        <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(40%)' }} />
+                      ) : (
+                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, background: colorMap[p.color] || '#E1F5EE', filter: 'grayscale(60%)' }}>
+                          {p.emoji}
+                        </div>
+                      )}
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 50, background: 'linear-gradient(transparent, rgba(0,0,0,0.55))' }} />
+                      <div style={{ position: 'absolute', bottom: 7, left: 10, fontSize: 13, fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{p.price}</div>
+                      {/* Archived badge */}
+                      <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: '#aaa', fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 20, backdropFilter: 'blur(4px)', letterSpacing: 0.5 }}>
+                        ARCHIVED
+                      </div>
+                    </div>
+                    {/* Body */}
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z"/>
+                          <circle cx="8" cy="6" r="1.5"/>
+                        </svg>
+                        {p.location}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <Tag label={p.type} />
+                          <Tag label={p.status} />
+                        </div>
+                        <button
+                          onClick={() => restoreProperty(p)}
+                          style={{
+                            fontSize: 10, color: '#34D399',
+                            background: 'rgba(52,211,153,0.1)',
+                            border: '1px solid rgba(52,211,153,0.25)',
+                            borderRadius: 5, padding: '2px 8px',
+                            cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 1.6,
+                          }}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
