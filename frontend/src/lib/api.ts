@@ -26,9 +26,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (res.status === 401) {
-    authStore.clear();
-    if (typeof window !== 'undefined') window.location.href = '/login';
-    throw new Error('Unauthorized');
+    // Auth endpoints (login/register) legitimately return 401 for wrong credentials.
+    // Only auto-redirect on 401 for protected routes, not the auth endpoints themselves.
+    if (!path.startsWith('/api/auth/')) {
+      authStore.clear();
+      if (typeof window !== 'undefined') window.location.href = '/login';
+    }
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Unauthorized');
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
