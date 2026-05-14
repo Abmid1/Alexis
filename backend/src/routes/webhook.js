@@ -25,13 +25,35 @@ const express = require('express');
 const supabase = require('../lib/supabase');
 const { sendPlatformMessage } = require('../lib/meta');
 const { generateAIReply } = require('../lib/ai');
-const { tryAutoCreateDeal } = require('../lib/autoPipeline');
+const { tryAutoCreateDeal, detectContactType } = require('../lib/autoPipeline');
+const { tryAutoCreateViewingTask } = require('../lib/autoViewing');
 
 const router = express.Router();
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const avatarColorFor = { WhatsApp: 'g', Facebook: 'b', Instagram: 'r' };
+
+/**
+ * Tries to extract a personal name from a message like:
+ * "My name is Kwame", "I am Afia Mensah", "This is John"
+ * Returns the extracted name or null.
+ */
+function extractNameFromMessage(text) {
+  const t = (text || '').trim();
+  const patterns = [
+    /my name is ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)/i,
+    /i(?:'m| am) ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)/i,
+    /this is ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)/i,
+    /call me ([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+)?)/i,
+    /^([A-Z][a-z]+ [A-Z][a-z]+)(?:\s+here)?[.,!]?\s*$/,  // "Kwame Mensah." alone on a line
+  ];
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
 
 function timeStr() {
   return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -113,6 +135,25 @@ async function handleWhatsApp(entry) {
     const value    = change.value || {};
     const messages = value.messages || [];
     const contacts = value.contacts || [];
+
+    // ── Delivery / read status updates ─────────────────────────────────────
+    for (const status of (value.statuses || [])) {
+      if (status.status === 'delivered' || status.status === 'read') {
+        // Update the matching outbound message. Gracefully skip if columns don't exist.
+        try {
+          const update = status.status === 'read'
+            ? { read_at: new Date().toISOString() }
+            : { delivered_at: new Date().toISOString() };
+
+          await supabase
+            .from('messages')
+            .update(update)
+            .eq('wa_message_id', status.id);
+        } catch (_) { /* columns may not exist yet */ }
+
+        console.log(`[WhatsApp] 📬 Message ${status.id} — ${status.status}`);
+      }
+    }
 
     for (const msg of messages) {
       // Only handle inbound text messages (ignore status updates, media, etc.)
@@ -228,21 +269,24 @@ async function processIncomingMessage({ platform, platformId, senderName, text }
 
     conv = existing;
   } else {
+    const contactType = detectContactType(senderName);
+
     // Create a brand-new conversation
     const { data: newConv, error: convErr } = await supabase
       .from('conversations')
       .insert({
-        user_id:     userId,
-        name:        senderName,
-        initials:    initials(senderName),
+        user_id:      userId,
+        name:         senderName,
+        initials:     initials(senderName),
         avatar_color: avatarColorFor[platform] || 'g',
         last_message: text,
-        source:      platform,
-        status:      'AI live',
-        ai_active:   true,
-        lead_status: 'New',
-        unread:      true,
-        context:     contextKey,   // "WhatsApp:233501234567"
+        source:       platform,
+        status:       'AI live',
+        ai_active:    true,
+        lead_status:  'New',
+        unread:       true,
+        context:      contextKey,   // "WhatsApp:233501234567"
+        contact_type: contactType,  // 'individual' | 'company'
       })
       .select()
       .single();
@@ -258,13 +302,14 @@ async function processIncomingMessage({ platform, platformId, senderName, text }
     await supabase
       .from('leads')
       .insert({
-        user_id: userId,
-        name:    senderName,
-        source:  platform,
-        interest: '',
-        budget:  '',
-        status:  'New',
-        ai_score: null,
+        user_id:      userId,
+        name:         senderName,
+        source:       platform,
+        interest:     '',
+        budget:       '',
+        status:       'New',
+        ai_score:     null,
+        contact_type: contactType,
       })
       .catch((err) => console.warn('[Webhook] Lead creation skipped:', err.message));
 
@@ -283,6 +328,34 @@ async function processIncomingMessage({ platform, platformId, senderName, text }
     time_text:       ts,
     label:           null,
   });
+
+  // ── 3b. Name detection: update conversation/lead if customer reveals name ──
+  // Only runs when the current stored name looks like a phone number or generic handle.
+  const nameIsUnknown = !conv.name
+    || /^\+?\d[\d\s\-()]{6,}$/.test(conv.name)
+    || conv.name.startsWith('Facebook User')
+    || conv.name.startsWith('Instagram User');
+
+  if (nameIsUnknown) {
+    const detectedName = extractNameFromMessage(text);
+    if (detectedName) {
+      await supabase
+        .from('conversations')
+        .update({ name: detectedName, initials: initials(detectedName) })
+        .eq('id', conv.id);
+
+      // Also update the matching lead record
+      await supabase
+        .from('leads')
+        .update({ name: detectedName })
+        .eq('user_id', userId)
+        .eq('name', conv.name)
+        .catch(() => {});
+
+      conv = { ...conv, name: detectedName };
+      console.log(`[Webhook] 📛 Name updated: "${conv.name}" → "${detectedName}"`);
+    }
+  }
 
   // ── 4. Generate AI reply ──────────────────────────────────────────────────
   const aiActive = conv.ai_active !== false;
@@ -322,6 +395,14 @@ async function processIncomingMessage({ platform, platformId, senderName, text }
     userId,
     clientName:  conv.name,
     messageText: text,
+  }).catch(() => {});
+
+  // ── 6b. Auto-viewing: if AI promised a viewing, create a task ────────────
+  tryAutoCreateViewingTask({
+    userId,
+    clientName:     conv.name,
+    conversationId: conv.id,
+    aiReply:        aiText,
   }).catch(() => {});
 
   // ── 7. Send AI reply back through the platform ────────────────────────────

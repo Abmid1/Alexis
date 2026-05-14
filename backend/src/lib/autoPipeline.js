@@ -14,6 +14,25 @@
 
 const supabase = require('./supabase');
 
+// ── Company / individual detection ───────────────────────────────────────────
+
+const COMPANY_INDICATORS = [
+  'ltd', 'limited', 'llc', 'inc', 'incorporated', 'corp', 'corporation',
+  'ventures', 'venture', 'enterprises', 'enterprise', 'group', 'associates',
+  'holdings', 'realty', 'development', 'developments', 'consult', 'consulting',
+  'invest', 'investment', 'co.', 'company', 'properties', 'real estate',
+];
+
+/**
+ * Returns 'company' if the name looks like a business, otherwise 'individual'.
+ * @param {string} name
+ * @returns {'company'|'individual'}
+ */
+function detectContactType(name) {
+  const lower = (name || '').toLowerCase();
+  return COMPANY_INDICATORS.some(i => lower.includes(i)) ? 'company' : 'individual';
+}
+
 // ── Signal word lists ─────────────────────────────────────────────────────────
 
 const PRICE_NEGOTIATION = [
@@ -48,6 +67,21 @@ const VIEWING_MENTIONS = [
   'i was there', 'checked it out', 'liked it', 'loved it',
 ];
 
+// Negative signals — suppress intent detection when present
+// Catches "can't do GHS 440k, too expensive" style false positives
+const NEGATIVE_SIGNALS = [
+  "can't do", "cannot do", "won't do", "wouldn't do",
+  "can't afford", "cannot afford", "can't go that", "can't go below",
+  "too much", "too expensive", "too high", "too pricey",
+  "out of my budget", "above my budget", "beyond my budget",
+  "over my budget", "not in my budget", "exceeds my budget",
+  "not interested", "no longer interested", "not ready",
+  "changed my mind", "never mind", "nevermind", "forget it",
+  "don't want", "do not want", "not looking", "just browsing",
+  "only asking", "just wondering", "just curious",
+  "can't proceed", "cannot proceed",
+];
+
 // Signals that — combined with a prior viewing — indicate post-viewing intent
 const POST_VIEWING_INTENT = [
   'price', 'cost', 'how much', 'what is the price', 'the price',
@@ -65,6 +99,11 @@ const POST_VIEWING_INTENT = [
  */
 function detectBuyingIntent(currentText, recentMessages) {
   const lower = (currentText || '').toLowerCase();
+
+  // 0. Suppress if message is negative/rejection (e.g. "can't do GHS 440k, too expensive")
+  if (NEGATIVE_SIGNALS.some(s => lower.includes(s))) {
+    return { detected: false, reason: null };
+  }
 
   // 1. Price negotiation language
   if (PRICE_NEGOTIATION.some(s => lower.includes(s))) {
@@ -201,4 +240,4 @@ async function tryAutoCreateDeal({ conversationId, userId, clientName, messageTe
   }
 }
 
-module.exports = { tryAutoCreateDeal, detectBuyingIntent };
+module.exports = { tryAutoCreateDeal, detectBuyingIntent, detectContactType };

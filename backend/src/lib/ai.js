@@ -25,6 +25,61 @@ const ESCALATION_REPLY =
 const DEFAULT_REPLY =
   "Thanks for reaching out to BILT Africa! 🏡 I'm your property assistant. I can help you browse listings, get pricing, or schedule a viewing. What are you looking for?";
 
+// ── Property pre-filter (narrows list before it reaches the AI) ───────────────
+
+/**
+ * Filters the full property list down to those that match what the customer
+ * is asking for, based on cheap keyword/regex parsing of the message.
+ * Falls back to the full list (capped at 20) if nothing can be inferred.
+ */
+function preFilterProperties(properties, messageText) {
+  if (!properties || properties.length === 0) return [];
+  const lower = (messageText || '').toLowerCase();
+
+  // Detect rent vs sale intent
+  const wantsRent = /\b(rent|rental|per month|monthly|lease)\b/.test(lower);
+  const wantsSale = /\b(buy|purchase|for sale|buying|own|ownership)\b/.test(lower);
+
+  // Detect bedroom count (e.g. "2 bed", "3 bedroom", "4br")
+  const bedMatch = lower.match(/(\d+)\s*(?:bed(?:room)?s?|br)\b/);
+  const bedCount = bedMatch ? parseInt(bedMatch[1], 10) : null;
+
+  // Detect max price (e.g. "under GHS 3000", "budget of 500k", "max ₵ 2m")
+  const priceMatch = lower.match(
+    /(?:under|below|max(?:imum)?|budget(?:\s+of)?|up\s+to|around|at\s+most)\s*(?:ghs?|₵)?\s*([\d,]+)\s*([km]?)/i
+  );
+  let maxPrice = null;
+  if (priceMatch) {
+    maxPrice = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
+    const suf = (priceMatch[2] || '').toLowerCase();
+    if (suf === 'k') maxPrice *= 1_000;
+    if (suf === 'm') maxPrice *= 1_000_000;
+  }
+
+  let filtered = [...properties];
+
+  // Filter by type
+  if (wantsRent && !wantsSale)  filtered = filtered.filter(p => p.type === 'rent');
+  if (wantsSale && !wantsRent)  filtered = filtered.filter(p => p.type === 'sale');
+
+  // Filter by bedroom count (only if the property name/description carries bed info)
+  if (bedCount) {
+    const byBed = filtered.filter(p => {
+      const m = (p.name || '').match(/(\d+)\s*(?:bed(?:room)?s?|br)\b/i);
+      return !m || parseInt(m[1], 10) === bedCount;
+    });
+    if (byBed.length > 0) filtered = byBed;
+  }
+
+  // Filter by max price
+  if (maxPrice && maxPrice > 0) {
+    const byPrice = filtered.filter(p => (p.price_numeric || 0) <= maxPrice && (p.price_numeric || 0) > 0);
+    if (byPrice.length > 0) filtered = byPrice;
+  }
+
+  return filtered.slice(0, 20);
+}
+
 // ── Build the template section of the system prompt ──────────────────────────
 function buildTemplateSection(templates) {
   if (!templates || templates.length === 0) return '';
@@ -58,7 +113,7 @@ property listings and Ghana real estate knowledge provided.`;
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-function buildSystemPrompt(properties, templates, agentName) {
+function buildSystemPrompt(properties, templates, agentName, contactName, contactType) {
   const propList = properties.length
     ? properties
         .map(
@@ -69,6 +124,19 @@ function buildSystemPrompt(properties, templates, agentName) {
         )
         .join('\n')
     : 'No active listings at this time.';
+
+  // Decide whether we need to ask for their name
+  const nameIsUnknown = !contactName || /^\+?\d[\d\s\-()]{6,}$/.test(contactName)
+    || contactName.startsWith('Facebook User')
+    || contactName.startsWith('Instagram User');
+
+  const nameInstruction = nameIsUnknown
+    ? '- You do NOT know the customer\'s name yet. If this is early in the conversation, introduce yourself warmly and ask for their name naturally.'
+    : `- The customer's name is ${contactName}. Use it occasionally to personalise the conversation.`;
+
+  const companyInstruction = contactType === 'company'
+    ? '- This appears to be a COMPANY / business contact. They may be looking for commercial property, multiple units, or investment opportunities. Ask about their business needs.'
+    : '';
 
   return `
 You are a friendly, professional AI property assistant for ${agentName || 'BILT Africa'}, a real estate agency in Accra, Ghana.
@@ -92,6 +160,8 @@ RULES:
 - If the customer asks to speak to a human or agent, say you'll connect them immediately
 - Never discuss politics, religion, or anything unrelated to real estate
 - Ghana context: prices in GHS, areas include East Legon, Cantonments, Airport Res, Osu, Tema, Adenta, Spintex
+${nameInstruction}
+${companyInstruction}
 
 TONE: Warm, professional, and helpful — like a knowledgeable friend in real estate.
 `.trim();
@@ -142,12 +212,16 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
 
   try {
     // ── 1. Fetch agent's real property listings ───────────────────────────────
-    const { data: properties } = await supabase
+    const { data: allProperties } = await supabase
       .from('properties')
-      .select('name, location, price, type, status')
+      .select('name, location, price, price_numeric, type, status')
       .eq('user_id', userId)
+      .neq('status', 'Sold')
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(50);
+
+    // Pre-filter to properties relevant to this message
+    const properties = preFilterProperties(allProperties || [], messageText);
 
     // ── 2. Fetch the agency's approved AI templates ───────────────────────────
     const { data: templates } = await supabase
@@ -156,13 +230,15 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
 
-    // ── 3. Fetch recent conversation history (last 10 messages) ──────────────
-    const { data: recentMsgs } = await supabase
-      .from('messages')
-      .select('type, text')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    // ── 3. Fetch conversation context (name, recent history) ─────────────────
+    const [{ data: conv }, { data: recentMsgs }] = await Promise.all([
+      supabase.from('conversations').select('name, contact_type').eq('id', conversationId).maybeSingle(),
+      supabase.from('messages').select('type, text').eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false }).limit(10),
+    ]);
+
+    const contactName = conv?.name || null;
+    const contactType = conv?.contact_type || 'individual';
 
     // Convert to OpenAI-style history (oldest first, exclude the current message)
     const history = (recentMsgs || [])
@@ -179,7 +255,7 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
     const result = await groq.chat.completions.create({
       model: MODEL,
       messages: [
-        { role: 'system', content: buildSystemPrompt(properties || [], templates || [], agentName) },
+        { role: 'system', content: buildSystemPrompt(properties, templates || [], agentName, contactName, contactType) },
         ...history,
         { role: 'user', content: messageText },
       ],

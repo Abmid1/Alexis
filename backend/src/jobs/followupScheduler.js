@@ -16,6 +16,17 @@ const supabase               = require('../lib/supabase');
 const { sendPlatformMessage } = require('../lib/meta');
 const { generateFollowUpMessage } = require('../lib/followupMessages');
 
+// ── Working hours guard ───────────────────────────────────────────────────────
+// Ghana (Accra) is UTC+0 year-round, so server UTC hours == Accra local hours.
+// Set WORK_HOURS_START / WORK_HOURS_END in .env to override (24-hr format, e.g. 8 and 18).
+const WORK_START = parseInt(process.env.WORK_HOURS_START || '8',  10);
+const WORK_END   = parseInt(process.env.WORK_HOURS_END   || '18', 10);
+
+function isWithinWorkingHours() {
+  const hour = new Date().getUTCHours(); // UTC == Accra local time
+  return hour >= WORK_START && hour < WORK_END;
+}
+
 // ── Follow-up rules (all times in hours) ─────────────────────────────────────
 const RULES = {
   Hot:       { intervals: [4,   24,  72],  maxCount: 3 },
@@ -173,6 +184,13 @@ async function runFollowUpJob() {
   }
 
   isRunning = true;
+
+  if (!isWithinWorkingHours()) {
+    console.log(`[FollowUp] ⏸  Outside working hours (${WORK_START}:00–${WORK_END}:00 Accra) — skipping this tick`);
+    isRunning = false;
+    return;
+  }
+
   console.log(`[FollowUp] ⏰ Running at ${new Date().toISOString()}`);
 
   try {
