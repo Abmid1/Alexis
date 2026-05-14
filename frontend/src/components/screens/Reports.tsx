@@ -239,7 +239,7 @@ export default function Reports() {
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>AI Analyst</div>
             <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 0.5 }}>
-              Powered by Gemini · knows your CRM data
+              Powered by Groq · knows your CRM data
             </div>
           </div>
           {msgs.length > 0 && (

@@ -76,9 +76,23 @@ async function buildCRMContext(userId) {
   const closed     = byStage.Closed || 0;
 
   const propTotal  = props.length;
+
+  // Split by listing type
   const forSale    = props.filter(p => p.type === 'sale');
   const forRent    = props.filter(p => p.type === 'rent');
-  const saleValue  = forSale.reduce((s, p) => s + (p.price_numeric || 0), 0);
+  const forLand    = props.filter(p => p.type === 'land');
+
+  // Split by sold status (the toggle on the Properties page sets status = 'Sold')
+  const soldProps   = props.filter(p => (p.status || '').toLowerCase() === 'sold');
+  const activeProps = props.filter(p => (p.status || '').toLowerCase() !== 'sold');
+
+  const soldSaleProps  = soldProps.filter(p => p.type === 'sale');
+  const soldRentProps  = soldProps.filter(p => p.type === 'rent');
+  const soldLandProps  = soldProps.filter(p => p.type === 'land');
+
+  const soldValue   = soldProps.reduce((s, p) => s + (p.price_numeric || 0), 0);
+  const activeValue = forSale.filter(p => (p.status || '').toLowerCase() !== 'sold')
+                             .reduce((s, p) => s + (p.price_numeric || 0), 0);
 
   const aiReplies  = msgs.filter(m => m.type === 'ai').length;
   const inbound    = msgs.filter(m => m.type === 'in').length;
@@ -99,10 +113,11 @@ PIPELINE (${pipeTotal} deals):
 - Total pipeline value: GHS ${(pipeValue / 1000).toFixed(0)}k
 - Active deals: ${pipeTotal - closed}
 
-PROPERTIES (${propTotal} listed):
-- For sale: ${forSale.length} (total value: GHS ${(saleValue / 1_000_000).toFixed(2)}m)
-- For rent: ${forRent.length}
-- Land: ${props.filter(p => p.type === 'land').length}
+PROPERTIES (${propTotal} total):
+- SOLD: ${soldProps.length} properties (${soldSaleProps.length} sale, ${soldRentProps.length} rent, ${soldLandProps.length} land) — total value GHS ${(soldValue / 1_000_000).toFixed(2)}m
+- ACTIVE listings: ${activeProps.length} (${forSale.filter(p => (p.status||'').toLowerCase() !== 'sold').length} for sale, ${forRent.filter(p => (p.status||'').toLowerCase() !== 'sold').length} for rent, ${forLand.filter(p => (p.status||'').toLowerCase() !== 'sold').length} land)
+- Active for-sale value: GHS ${(activeValue / 1_000_000).toFixed(2)}m
+- Listing breakdown by type: sale=${forSale.length}, rent=${forRent.length}, land=${forLand.length}
 
 AI PERFORMANCE (last 30 days):
 - Inbound messages: ${inbound}
