@@ -3,20 +3,21 @@
  * POST /api/ai-report
  *
  * Accepts a chat history, enriches it with the agent's live CRM data,
- * then calls Google Gemini (free) to return a real estate business insight.
+ * then calls Groq (llama-3.3-70b-versatile) to return a real estate business insight.
  *
  * Required .env:
- *   GEMINI_API_KEY=AIza...   ← free at aistudio.google.com
- *   OPENAI_API_KEY=sk-...    ← optional fallback
+ *   GROQ_API_KEY=gsk_...   ← free at console.groq.com
  */
 
 const express = require('express');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq    = require('groq-sdk');
 const supabase = require('../lib/supabase');
 const auth     = require('../middleware/auth');
 
 const router = express.Router();
 router.use(auth);
+
+const MODEL = 'llama-3.3-70b-versatile';
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `
@@ -63,26 +64,22 @@ async function buildCRMContext(userId) {
   const props  = propsRes.data  || [];
   const msgs   = msgsRes.data   || [];
 
-  // ── Lead stats ───────────────────────────────────────────────────────────────
   const leadTotal  = leads.length;
   const byStatus   = groupCount(leads, 'status');
   const bySource   = groupCount(leads, 'source');
   const hotWarm    = (byStatus.Hot || 0) + (byStatus.Warm || 0);
   const closeRate  = leadTotal ? Math.round((byStatus.Qualified || 0) / leadTotal * 100) : 0;
 
-  // ── Pipeline stats ───────────────────────────────────────────────────────────
   const pipeTotal  = deals.length;
   const pipeValue  = deals.reduce((s, d) => s + parseAmount(d.amount), 0);
   const byStage    = groupCount(deals, 'stage');
   const closed     = byStage.Closed || 0;
 
-  // ── Property stats ───────────────────────────────────────────────────────────
   const propTotal  = props.length;
   const forSale    = props.filter(p => p.type === 'sale');
   const forRent    = props.filter(p => p.type === 'rent');
   const saleValue  = forSale.reduce((s, p) => s + (p.price_numeric || 0), 0);
 
-  // ── Message / AI stats ───────────────────────────────────────────────────────
   const aiReplies  = msgs.filter(m => m.type === 'ai').length;
   const inbound    = msgs.filter(m => m.type === 'in').length;
   const aiRate     = inbound ? Math.round(aiReplies / inbound * 100) : 0;
@@ -114,7 +111,6 @@ AI PERFORMANCE (last 30 days):
 `.trim();
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function groupCount(arr, key) {
   return arr.reduce((acc, item) => {
     const v = item[key] || 'Unknown';
@@ -129,12 +125,6 @@ function parseAmount(str = '') {
 }
 
 // ── POST /api/ai-report ───────────────────────────────────────────────────────
-/**
- * Body: {
- *   messages: Array<{ role: 'user' | 'assistant', content: string }>
- * }
- * The client sends the full conversation history so the AI has context.
- */
 router.post('/', async (req, res) => {
   const { messages } = req.body;
 
@@ -142,47 +132,39 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'messages array is required' });
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-
-  if (!geminiKey) {
+  if (!process.env.GROQ_API_KEY) {
     return res.status(503).json({
-      error: 'GEMINI_API_KEY is not set. Get a free key at aistudio.google.com then add it to backend/.env',
+      error: 'GROQ_API_KEY is not set. Get a free key at console.groq.com then add it to backend/.env',
     });
   }
 
   try {
-    // Pull live CRM context for this user
     const crmContext = await buildCRMContext(req.user.id).catch(() => '(CRM data unavailable)');
 
-    // ── Google Gemini (free) ───────────────────────────────────────────────────
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',            // free tier, very fast
-      systemInstruction: `${SYSTEM_PROMPT}\n\n${crmContext}`,
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    // messages from the client are already { role: 'user'|'assistant', content: string }
+    const result = await groq.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\n${crmContext}` },
+        ...messages,
+      ],
+      max_tokens: 1024,
+      temperature: 0.5,
     });
 
-    // Convert message history to Gemini format
-    // Gemini uses 'user' and 'model' (not 'assistant')
-    const history = messages.slice(0, -1).map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-
-    const chat = model.startChat({ history });
-    const lastUserMsg = messages[messages.length - 1].content;
-    const result = await chat.sendMessage(lastUserMsg);
-    const reply  = result.response.text();
-
+    const reply = result.choices[0].message.content;
     res.json({ reply });
 
   } catch (err) {
-    console.error('[AI Report] Gemini error:', err.message);
+    console.error('[AI Report] Groq error:', err.message);
 
-    if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
-      return res.status(503).json({ error: 'Invalid Gemini API key. Check your GEMINI_API_KEY in backend/.env' });
+    if (err.status === 401 || err.message?.includes('invalid_api_key') || err.message?.includes('Unauthorized')) {
+      return res.status(503).json({ error: 'Invalid Groq API key. Check your GROQ_API_KEY in backend/.env' });
     }
-    if (err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('quota')) {
-      return res.status(503).json({ error: 'Gemini free quota reached for today. Resets at midnight Pacific time.' });
+    if (err.message?.includes('rate_limit') || err.message?.includes('quota')) {
+      return res.status(503).json({ error: 'Groq rate limit reached. Wait a moment and try again.' });
     }
 
     res.status(500).json({ error: err.message || 'AI request failed' });

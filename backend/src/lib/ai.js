@@ -1,16 +1,18 @@
 /**
  * BILT AFRICA — AI Conversation Engine
- * Uses Google Gemini with real property listings, conversation history,
- * and the agency's own approved AI templates (scripts).
+ * Uses Groq (llama-3.3-70b-versatile) with real property listings,
+ * conversation history, and the agency's own approved AI templates.
  *
  * Template priority: when a customer message matches a saved template topic,
  * the AI uses the agency's approved wording instead of making up its own answer.
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const supabase = require('./supabase');
 
-// ── Escalation check (always runs, even without Gemini) ───────────────────────
+const MODEL = 'llama-3.3-70b-versatile';
+
+// ── Escalation check (always runs, even without Groq) ────────────────────────
 const ESCALATION_KEYWORDS = [
   'speak to agent', 'real person', 'human', 'call me', 'phone number',
   'speak to someone', 'representative', 'manager', 'speak to a person',
@@ -23,7 +25,7 @@ const ESCALATION_REPLY =
 const DEFAULT_REPLY =
   "Thanks for reaching out to BILT Africa! 🏡 I'm your property assistant. I can help you browse listings, get pricing, or schedule a viewing. What are you looking for?";
 
-// ── Build the template section of the system prompt ───────────────────────────
+// ── Build the template section of the system prompt ──────────────────────────
 function buildTemplateSection(templates) {
   if (!templates || templates.length === 0) return '';
 
@@ -95,15 +97,12 @@ TONE: Warm, professional, and helpful — like a knowledgeable friend in real es
 `.trim();
 }
 
-// ── Detect if a template was used in the AI reply ─────────────────────────────
-// Simple heuristic: if 4+ consecutive words from the approved answer appear
-// in the AI reply, we count it as used.
+// ── Detect if a template was used in the AI reply ────────────────────────────
 function detectUsedTemplate(reply, templates) {
   const replyLower = reply.toLowerCase();
   for (const t of templates) {
     const words = (t.answer || '').toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length < 4) continue;
-    // Sliding window of 4 words
     for (let i = 0; i <= words.length - 4; i++) {
       const phrase = words.slice(i, i + 4).join(' ');
       if (replyLower.includes(phrase)) return t.id;
@@ -112,10 +111,8 @@ function detectUsedTemplate(reply, templates) {
   return null;
 }
 
-// ── Increment used_count on the detected template ─────────────────────────────
+// ── Increment used_count on the detected template ────────────────────────────
 async function incrementTemplateCount(templateId) {
-  // Use a raw RPC or a read-then-write (Supabase doesn't support atomic increments
-  // without an RPC, so we read then update — acceptable for low-concurrency CRM use)
   const { data } = await supabase
     .from('ai_templates')
     .select('used_count')
@@ -131,33 +128,20 @@ async function incrementTemplateCount(templateId) {
 }
 
 // ── Main function ─────────────────────────────────────────────────────────────
-/**
- * Generate an AI reply for an incoming message.
- *
- * @param {object} opts
- * @param {string} opts.messageText        - The customer's message
- * @param {string} opts.userId             - Agent's user ID (to fetch their properties + templates)
- * @param {string} opts.conversationId     - Conversation ID (to fetch message history)
- * @param {string} [opts.agentName]        - Agent/business name for the system prompt
- *
- * @returns {Promise<{ text: string, escalate: boolean }>}
- */
 async function generateAIReply({ messageText, userId, conversationId, agentName }) {
   const lower = (messageText || '').toLowerCase().trim();
 
-  // Always escalate immediately if customer asks for a human
   if (ESCALATION_KEYWORDS.some(kw => lower.includes(kw))) {
     return { text: ESCALATION_REPLY, escalate: true };
   }
 
-  // If no Gemini key, fall back to default
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('[AI] GEMINI_API_KEY not set — using default reply');
+  if (!process.env.GROQ_API_KEY) {
+    console.warn('[AI] GROQ_API_KEY not set — using default reply');
     return { text: DEFAULT_REPLY, escalate: false };
   }
 
   try {
-    // ── 1. Fetch agent's real property listings ────────────────────────────────
+    // ── 1. Fetch agent's real property listings ───────────────────────────────
     const { data: properties } = await supabase
       .from('properties')
       .select('name, location, price, type, status')
@@ -172,7 +156,7 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
 
-    // ── 3. Fetch recent conversation history (last 10 messages for context) ────
+    // ── 3. Fetch recent conversation history (last 10 messages) ──────────────
     const { data: recentMsgs } = await supabase
       .from('messages')
       .select('type, text')
@@ -180,32 +164,31 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
       .order('created_at', { ascending: false })
       .limit(10);
 
-    // Convert to Gemini history format (oldest first, exclude current message)
+    // Convert to OpenAI-style history (oldest first, exclude the current message)
     const history = (recentMsgs || [])
       .reverse()
-      .slice(0, -1) // the last one is the current incoming message — don't re-include
+      .slice(0, -1)
       .filter(m => m.text?.trim())
       .map(m => ({
-        role: m.type === 'in' ? 'user' : 'model',
-        parts: [{ text: m.text }],
+        role: m.type === 'in' ? 'user' : 'assistant',
+        content: m.text,
       }));
 
-    // ── 4. Call Gemini with properties + templates in system prompt ────────────
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: buildSystemPrompt(
-        properties || [],
-        templates   || [],
-        agentName
-      ),
+    // ── 4. Call Groq ──────────────────────────────────────────────────────────
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const result = await groq.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(properties || [], templates || [], agentName) },
+        ...history,
+        { role: 'user', content: messageText },
+      ],
+      max_tokens: 300,
+      temperature: 0.7,
     });
 
-    const chat   = model.startChat({ history });
-    const result = await chat.sendMessage(messageText);
-    const reply  = result.response.text().trim();
-
-    console.log(`[AI] ✅ Gemini reply generated (${reply.length} chars)`);
+    const reply = result.choices[0].message.content.trim();
+    console.log(`[AI] ✅ Groq reply generated (${reply.length} chars)`);
 
     // ── 5. Track which template was used (fire-and-forget) ───────────────────
     if (templates && templates.length > 0) {
@@ -219,17 +202,15 @@ async function generateAIReply({ messageText, userId, conversationId, agentName 
     return { text: reply, escalate: false };
 
   } catch (err) {
-    console.error('[AI] Gemini error:', err.message);
+    console.error('[AI] Groq error:', err.message);
 
-    // Quota hit — return a polite holding message instead of crashing
-    if (err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('quota')) {
+    if (err.message?.includes('rate_limit') || err.message?.includes('quota')) {
       return {
         text: "Thanks for your message! Our team will get back to you shortly. 🏡",
         escalate: false,
       };
     }
 
-    // Any other error — use default
     return { text: DEFAULT_REPLY, escalate: false };
   }
 }

@@ -1,14 +1,17 @@
 /**
  * BILT AFRICA — Follow-up Message Generator
- * Generates personalised follow-up messages using Gemini.
+ * Generates personalised follow-up messages using Groq.
  * Injects the agency's approved AI templates so the AI follows
  * the same approved scripts it uses in live conversations.
- * Falls back to warm static templates if Gemini is unavailable.
+ * Falls back to warm static templates if Groq is unavailable.
  */
 
+const Groq = require('groq-sdk');
 const supabase = require('./supabase');
 
-// ── Static fallbacks (used when Gemini quota is hit) ─────────────────────────
+const MODEL = 'llama-3.3-70b-versatile';
+
+// ── Static fallbacks (used when Groq quota is hit or key missing) ────────────
 const STATIC_TEMPLATES = {
   Hot: [
     (name) => `Hi ${name}! 👋 Just checking in — are you still interested in the property? I can arrange a viewing this week!`,
@@ -31,7 +34,7 @@ const STATIC_TEMPLATES = {
   ],
 };
 
-// ── Build template section for the follow-up prompt ───────────────────────────
+// ── Build template section for the follow-up prompt ──────────────────────────
 function buildTemplateSection(templates) {
   if (!templates || templates.length === 0) return '';
 
@@ -58,11 +61,8 @@ ${scripts}
 // ── Main generator ────────────────────────────────────────────────────────────
 async function generateFollowUpMessage({ customerName, leadStatus, followUpNumber, userId, conversationId }) {
 
-  if (process.env.GEMINI_API_KEY) {
+  if (process.env.GROQ_API_KEY) {
     try {
-      const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-      // ── Fetch real listings ──────────────────────────────────────────────────
       const { data: properties } = await supabase
         .from('properties')
         .select('name, location, price, type')
@@ -70,14 +70,12 @@ async function generateFollowUpMessage({ customerName, leadStatus, followUpNumbe
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // ── Fetch agency's approved AI templates ─────────────────────────────────
       const { data: templates } = await supabase
         .from('ai_templates')
         .select('trigger_desc, question, answer')
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
 
-      // ── Fetch recent conversation for context ────────────────────────────────
       const { data: recentMsgs } = await supabase
         .from('messages')
         .select('type, text')
@@ -124,18 +122,23 @@ Instructions:
 Write only the message text, nothing else.
 `.trim();
 
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
-      const reply  = result.response.text().trim();
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const result = await groq.chat.completions.create({
+        model: MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 150,
+        temperature: 0.8,
+      });
 
+      const reply = result.choices[0].message.content.trim();
       if (reply) return reply;
+
     } catch (err) {
-      console.warn('[FollowUp] Gemini unavailable, using static template:', err.message);
+      console.warn('[FollowUp] Groq unavailable, using static template:', err.message);
     }
   }
 
-  // ── Static fallback ──────────────────────────────────────────────────────────
+  // ── Static fallback ───────────────────────────────────────────────────────
   const bucket = STATIC_TEMPLATES[leadStatus] || STATIC_TEMPLATES.New;
   const idx    = Math.min(followUpNumber - 1, bucket.length - 1);
   return bucket[idx](customerName);
