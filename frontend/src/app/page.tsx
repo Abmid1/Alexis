@@ -47,7 +47,7 @@ export default function Home() {
           {screen === 'leads'        && <Leads showModal={modal} onModalClose={() => setModal(false)} />}
           {screen === 'properties'   && <Properties showModal={modal} onModalClose={() => setModal(false)} />}
           {screen === 'conversations'&& <Conversations />}
-          {screen === 'pipeline'     && <Pipeline />}
+          {screen === 'pipeline'     && <Pipeline showModal={modal} onModalClose={() => setModal(false)} />}
           {screen === 'reports'      && <Reports />}
           {screen === 'followups'    && <FollowUps showModal={modal} onModalClose={() => setModal(false)} />}
           {screen === 'airesponses'  && <AIResponses showModal={modal} onModalClose={() => setModal(false)} />}

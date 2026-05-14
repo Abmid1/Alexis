@@ -16,7 +16,7 @@ const titles: Record<Screen, string> = {
 };
 
 const actions: Record<Screen, string> = {
-  dashboard:     '+ Add lead',
+  dashboard:     '',
   leads:         '+ New lead',
   properties:    '+ Add property',
   conversations: '',
