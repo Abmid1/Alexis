@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/DELL/bilt-africa/frontend/**)",
+      "Bash(npx tsc *)",
+      "Bash(node_modules\\\\.bin\\\\tsc --noEmit --skipLibCheck)",
+      "PowerShell(& \"c:\\\\Users\\\\DELL\\\\bilt-africa\\\\frontend\\\\node_modules\\\\.bin\\\\tsc\" --noEmit --skipLibCheck --project \"c:\\\\Users\\\\DELL\\\\bilt-africa\\\\frontend\\\\tsconfig.json\" 2>&1)"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 export type LeadStatus = 'Hot' | 'Warm' | 'New' | 'Cold' | 'Qualified';
 export type LeadSource = 'WhatsApp' | 'Instagram' | 'Website' | 'Facebook';
 export type PropertyType = 'sale' | 'rent' | 'land';
-export type PropertyStatus = 'Verified' | 'Pending';
+export type PropertyStatus = 'Available' | 'Sold' | 'Rented' | 'Off Market';
 export type PipelineStage = 'New' | 'Qualified' | 'Negotiating' | 'Closed';
 export type ConvStatus = 'AI live' | 'Needs you' | 'Closed cold';
 export type MessageType = 'in' | 'out' | 'ai';

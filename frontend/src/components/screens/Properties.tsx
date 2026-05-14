@@ -79,6 +79,11 @@ export default function Properties({ showModal, onModalClose }: Props) {
   const [videoFilePreview, setVideoFilePreview] = useState('');
   const videoInputRef                 = useRef<HTMLInputElement>(null);
 
+  // Edit modal state
+  const [editingProperty, setEditingProperty] = useState<any>(null);
+  const [editForm, setEditForm]       = useState({ name: '', location: '', price: '', price_numeric: '', type: 'sale' });
+  const [editSaving, setEditSaving]   = useState(false);
+
   // UI state
   const [saving, setSaving]           = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -109,6 +114,41 @@ export default function Properties({ showModal, onModalClose }: Props) {
     setArchived(prev => prev.filter(x => x.id !== p.id));
     setProperties(prev => [{ ...p, archived: false }, ...prev]);
     setStats((s: any) => s ? { ...s, listed: (s.listed || 0) + 1 } : s);
+  };
+
+  const toggleSold = async (p: any) => {
+    const newStatus = p.status === 'Sold' ? 'Available' : 'Sold';
+    await api.properties.update(p.id, { status: newStatus }).catch(() => {});
+    setProperties(prev => prev.map(x => x.id === p.id ? { ...x, status: newStatus } : x));
+  };
+
+  const startEdit = (p: any) => {
+    setEditingProperty(p);
+    setEditForm({
+      name: p.name,
+      location: p.location || '',
+      price: p.price,
+      price_numeric: String(p.priceNumeric ?? p.price_numeric ?? ''),
+      type: p.type,
+    });
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProperty) return;
+    setEditSaving(true);
+    try {
+      const updated = await api.properties.update(editingProperty.id, {
+        ...editForm,
+        price_numeric: parseInt(editForm.price_numeric.replace(/[^0-9]/g, ''), 10) || 0,
+      });
+      setProperties(prev => prev.map(x => x.id === editingProperty.id ? { ...x, ...updated } : x));
+      setEditingProperty(null);
+    } catch {
+      // keep modal open on error
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   // ── Image selection ──────────────────────────────────────────────
@@ -236,15 +276,19 @@ export default function Properties({ showModal, onModalClose }: Props) {
     }
   };
 
-  // ── Filters ──────────────────────────────────────────────────────
+  // ── Filters & sorted list ─────────────────────────────────────────
   const filters = [
-    { key: 'all',       label: `All (${stats?.listed ?? '…'})` },
-    { key: 'sale',      label: `For sale (${stats?.forSaleCount ?? '…'})` },
-    { key: 'rent',      label: `For rent (${stats?.forRentCount ?? '…'})` },
-    { key: 'land',      label: 'Land' },
-    { key: 'available', label: 'Available' },
-    { key: 'sold',      label: 'Sold' },
+    { key: 'all',  label: `All (${stats?.listed ?? '…'})` },
+    { key: 'sale', label: `For sale (${stats?.forSaleCount ?? '…'})` },
+    { key: 'rent', label: `For rent (${stats?.forRentCount ?? '…'})` },
+    { key: 'land', label: 'Land' },
+    { key: 'sold', label: 'Sold' },
   ];
+
+  // Active properties first, sold ones at the bottom
+  const sortedProperties = [...properties].sort((a: any, b: any) =>
+    (a.status === 'Sold' ? 1 : 0) - (b.status === 'Sold' ? 1 : 0)
+  );
 
   const ytId = getYouTubeId(videoUrl);
 
@@ -285,7 +329,8 @@ export default function Properties({ showModal, onModalClose }: Props) {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-          {properties.map((p: any) => {
+          {sortedProperties.map((p: any) => {
+            const isSold    = p.status === 'Sold';
             const hasImages = p.images?.length > 0;
             const hasVideo  = !!p.videoUrl || !!p.video_url;
             const vidUrl    = p.videoUrl || p.video_url || '';
@@ -294,18 +339,21 @@ export default function Properties({ showModal, onModalClose }: Props) {
             return (
               <div key={p.id} style={{
                 background: 'var(--bg-surface)',
-                border: '1px solid var(--border)',
+                border: `1px solid ${isSold ? 'rgba(245,158,11,0.25)' : 'var(--border)'}`,
                 borderRadius: 12,
                 overflow: 'hidden',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
+                opacity: isSold ? 0.72 : 1,
+                transition: 'border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
               }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(52,211,153,0.35)';
+                  (e.currentTarget as HTMLDivElement).style.borderColor = isSold ? 'rgba(245,158,11,0.5)' : 'rgba(52,211,153,0.35)';
                   (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)';
+                  (e.currentTarget as HTMLDivElement).style.opacity = '1';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)';
+                  (e.currentTarget as HTMLDivElement).style.borderColor = isSold ? 'rgba(245,158,11,0.25)' : 'var(--border)';
                   (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                  (e.currentTarget as HTMLDivElement).style.opacity = isSold ? '0.72' : '1';
                 }}
               >
                 {/* Banner image */}
@@ -313,31 +361,39 @@ export default function Properties({ showModal, onModalClose }: Props) {
                   onClick={() => hasImages && setLightboxSrc(p.images[0])}>
                   {hasImages ? (
                     <img src={p.images[0]} alt={p.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease', filter: isSold ? 'grayscale(30%)' : 'none' }}
                       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
                       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                     />
                   ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: colorMap[p.color] || '#E1F5EE' }}>
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: colorMap[p.color] || '#E1F5EE', filter: isSold ? 'grayscale(40%)' : 'none' }}>
                       {p.emoji}
                     </div>
                   )}
-                  {/* Gradient overlay at bottom */}
+                  {/* Gradient overlay */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(transparent, rgba(0,0,0,0.55))' }} />
-                  {/* Top badges */}
-                  <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
-                    {hasImages && p.images.length > 1 && (
-                      <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
-                        📷 {p.images.length}
-                      </span>
-                    )}
-                    {hasVideo && (
-                      <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
-                        ▶ Video
-                      </span>
-                    )}
-                  </div>
-                  {/* Price on image */}
+                  {/* SOLD banner */}
+                  {isSold && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(180,28,28,0.82)', color: '#fff', fontSize: 11, fontWeight: 800, textAlign: 'center', padding: '5px 0', letterSpacing: '0.12em', backdropFilter: 'blur(2px)' }}>
+                      SOLD
+                    </div>
+                  )}
+                  {/* Top badges (only when not sold) */}
+                  {!isSold && (
+                    <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
+                      {hasImages && p.images.length > 1 && (
+                        <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
+                          📷 {p.images.length}
+                        </span>
+                      )}
+                      {hasVideo && (
+                        <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, backdropFilter: 'blur(4px)' }}>
+                          ▶ Video
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Price */}
                   <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 14, fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                     {p.price}
                   </div>
@@ -355,36 +411,42 @@ export default function Properties({ showModal, onModalClose }: Props) {
                     </svg>
                     {p.location}
                   </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Tag label={p.type} />
-                      {/* Status — click to cycle through statuses */}
+
+                  {/* Footer: type tag + sold toggle + edit */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <Tag label={p.type} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {/* Sold toggle */}
                       <button
-                        title="Click to change status"
-                        onClick={async () => {
-                          const cycle = ['Available', 'Sold', 'Rented', 'Off Market'];
-                          const next = cycle[(cycle.indexOf(p.status) + 1) % cycle.length];
-                          await api.properties.update(p.id, { status: next }).catch(() => {});
-                          setProperties(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x));
+                        type="button"
+                        title={isSold ? 'Mark as Active' : 'Mark as Sold'}
+                        onClick={() => toggleSold(p)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 10, fontWeight: 600, padding: '3px 9px',
+                          borderRadius: 20, border: 'none', cursor: 'pointer',
+                          background: isSold ? 'rgba(180,28,28,0.12)' : 'rgba(52,211,153,0.12)',
+                          color: isSold ? '#DC2626' : '#059669',
+                          transition: 'all 0.15s',
                         }}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}
                       >
-                        <Tag label={p.status} />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
+                        {isSold ? 'Sold' : 'Active'}
+                      </button>
+                      {/* Edit button */}
+                      <button
+                        type="button"
+                        title="Edit property"
+                        onClick={() => startEdit(p)}
+                        style={{
+                          fontSize: 10, color: 'var(--text-muted)', background: 'none',
+                          border: '1px solid var(--border)', borderRadius: 5,
+                          padding: '2px 8px', cursor: 'pointer', lineHeight: 1.6,
+                        }}
+                      >
+                        Edit
                       </button>
                     </div>
-                    {/* Archive button */}
-                    <button
-                      title="Archive this property (keeps all data)"
-                      onClick={() => archiveProperty(p)}
-                      style={{
-                        fontSize: 10, color: 'var(--text-muted)', background: 'none',
-                        border: '1px solid var(--border)', borderRadius: 5,
-                        padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Archive
-                    </button>
                   </div>
 
                   {/* YouTube embed */}
@@ -443,8 +505,6 @@ export default function Properties({ showModal, onModalClose }: Props) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginTop: 10, opacity: 0.7 }}>
               {archived.map((p: any) => {
                 const hasImages = p.images?.length > 0;
-                const vidUrl    = p.videoUrl || p.video_url || '';
-                const ytIdCard  = getYouTubeId(vidUrl);
                 return (
                   <div key={p.id} style={{
                     background: 'var(--bg-surface)',
@@ -483,6 +543,7 @@ export default function Properties({ showModal, onModalClose }: Props) {
                           <Tag label={p.status} />
                         </div>
                         <button
+                          type="button"
                           onClick={() => restoreProperty(p)}
                           style={{
                             fontSize: 10, color: '#34D399',
@@ -514,6 +575,65 @@ export default function Properties({ showModal, onModalClose }: Props) {
           <button onClick={() => setLightboxSrc(null)}
             style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, width: 36, height: 36, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
         </div>
+      )}
+
+      {/* ── Edit Property Modal ──────────────────────────────────── */}
+      {editingProperty && (
+        <Modal title="Edit Property" onClose={() => setEditingProperty(null)}>
+          <form onSubmit={handleEditSave} style={{ paddingRight: 4 }}>
+            <div className="form-group">
+              <label className="form-label">Property name *</label>
+              <input className="form-input" required value={editForm.name}
+                onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. 3 Bed House · East Legon" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Location</label>
+              <input className="form-input" value={editForm.location}
+                onChange={(e) => setEditForm(p => ({ ...p, location: e.target.value }))}
+                placeholder="e.g. Accra" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Price (display) *</label>
+              <input className="form-input" required value={editForm.price}
+                onChange={(e) => setEditForm(p => ({ ...p, price: e.target.value }))}
+                placeholder="e.g. GHS 480,000" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Price (number, for metrics)</label>
+              <input className="form-input" type="number" value={editForm.price_numeric}
+                onChange={(e) => setEditForm(p => ({ ...p, price_numeric: e.target.value }))}
+                placeholder="e.g. 480000" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Type</label>
+              <select className="form-select" value={editForm.type}
+                onChange={(e) => setEditForm(p => ({ ...p, type: e.target.value }))}>
+                <option value="sale">For Sale</option>
+                <option value="rent">For Rent</option>
+                <option value="land">Land</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 18 }}>
+              <button type="button" onClick={() => {
+                archiveProperty(editingProperty);
+                setEditingProperty(null);
+              }} style={{
+                fontSize: 10, color: 'var(--text-muted)', background: 'none',
+                border: '1px solid var(--border)', borderRadius: 5,
+                padding: '4px 12px', cursor: 'pointer',
+              }}>
+                Archive
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn" onClick={() => setEditingProperty(null)}>Cancel</button>
+                <button type="submit" className="btn btn-green" disabled={editSaving}>
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* ── Add Property Modal ───────────────────────────────────── */}
@@ -556,19 +676,6 @@ export default function Properties({ showModal, onModalClose }: Props) {
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Status</label>
-              <select className="form-select" value={form.status}
-                onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
-                <option value="Available">Available</option>
-                <option value="Sold">Sold</option>
-                <option value="Rented">Rented</option>
-                <option value="Off Market">Off Market</option>
-              </select>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                You can change this anytime directly on the property card.
-              </div>
-            </div>
 
             {/* ── Photos ─────────────────────────────────────────── */}
             <div style={{ borderTop: '0.5px solid var(--color-border-tertiary)', margin: '14px 0 12px' }} />
