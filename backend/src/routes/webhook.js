@@ -25,6 +25,7 @@ const express = require('express');
 const supabase = require('../lib/supabase');
 const { sendPlatformMessage } = require('../lib/meta');
 const { generateAIReply } = require('../lib/ai');
+const { tryAutoCreateDeal } = require('../lib/autoPipeline');
 
 const router = express.Router();
 
@@ -315,7 +316,15 @@ async function processIncomingMessage({ platform, platformId, senderName, text }
     .update({ last_message: aiText, status: newStatus, ai_active: !escalate })
     .eq('id', conv.id);
 
-  // ── 6. Send AI reply back through the platform ────────────────────────────
+  // ── 6. Auto-pipeline: silently detect buying intent ──────────────────────
+  tryAutoCreateDeal({
+    conversationId: conv.id,
+    userId,
+    clientName:  conv.name,
+    messageText: text,
+  }).catch(() => {});
+
+  // ── 7. Send AI reply back through the platform ────────────────────────────
   try {
     await sendPlatformMessage(platform, platformId, aiText);
     console.log(`[Webhook] ✅ AI reply sent via ${platform} to ${platformId}`);
